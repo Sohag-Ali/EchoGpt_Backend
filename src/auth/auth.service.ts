@@ -22,7 +22,6 @@ import { ResendRegistrationOtpDto } from './dto/resend-registration-otp.dto';
 import { LoginDto } from './dto/login.dto';
 import { RefreshTokenDto } from './dto/refresh-token.dto';
 import { ForgotPasswordDto } from './dto/forgot-password.dto';
-import { VerifyResetOtpDto } from './dto/verify-reset-otp.dto';
 import { ResetPasswordDto } from './dto/reset-password.dto';
 
 export interface ClientMetadata {
@@ -389,7 +388,9 @@ export class AuthService {
   }
 
   /**
-   * Generate 6-digit OTP code stored in Redis with a 5-minute TTL.
+   * 1. Request Password Reset OTP:
+   * Generates a 6-digit OTP stored in Redis with 5-minute (300s) TTL.
+   * Dispatches OTP email if user exists, returns generic success response.
    */
   async forgotPassword(dto: ForgotPasswordDto) {
     const email = dto.email.trim().toLowerCase();
@@ -398,125 +399,102 @@ export class AuthService {
       where: { email },
     });
 
-    if (!user) {
-      return {
-        success: true,
-        message: 'If an account exists for this email address, a 6-digit OTP code has been sent.',
-      };
+    if (user) {
+      // Generate cryptographically secure 6-digit OTP (100000 to 999999)
+      const otp = crypto.randomInt(100000, 1000000).toString();
+
+      const otpKey = `password-reset-otp:${email}`;
+      const attemptsKey = `password-reset-attempts:${email}`;
+
+      await this.redisService.set(otpKey, otp, 300);
+      await this.redisService.del(attemptsKey);
+
+      this.emailService
+        .sendPasswordResetEmail(user.email, otp, user.name || 'User')
+        .catch((err) => this.logger.error(`Error sending password reset OTP email: ${err.message}`));
+
+      this.logger.log(`Generated and dispatched password reset OTP for account: ${email}`);
     }
-
-    // Generate cryptographically secure 6-digit OTP
-    const otp = crypto.randomInt(100000, 999999).toString();
-
-    const otpKey = `password-reset:otp:${email}`;
-    const attemptsKey = `password-reset:attempts:${email}`;
-
-    await this.redisService.set(otpKey, otp, 300);
-    await this.redisService.del(attemptsKey);
-
-    await this.emailService.sendPasswordResetEmail(user.email, otp, user.name || 'User');
-
-    this.logger.log(`Generated and dispatched password reset OTP for: ${user.email}`);
 
     return {
       success: true,
-      message: 'If an account exists for this email address, a 6-digit OTP code has been sent.',
+      message: 'If the email is registered, a password reset OTP has been sent.',
     };
   }
 
   /**
-   * Validate 6-digit OTP code against Redis with rate-limiting attempt protection.
+   * 2. Reset Password using email, OTP, and newPassword:
+   * Validates OTP directly against Redis, bcrypt hashes the new password,
+   * updates PostgreSQL, revokes sessions, and immediately deletes the OTP.
    */
-  async verifyResetOtp(dto: VerifyResetOtpDto) {
+  async resetPassword(dto: ResetPasswordDto) {
     const email = dto.email.trim().toLowerCase();
     const otpInput = dto.otp.trim();
 
-    const otpKey = `password-reset:otp:${email}`;
-    const attemptsKey = `password-reset:attempts:${email}`;
-
-    const attemptsStr = await this.redisService.get(attemptsKey);
-    const attempts = attemptsStr ? parseInt(attemptsStr, 10) : 0;
-
-    if (attempts >= 5) {
-      throw new BadRequestException('Too many failed OTP attempts. Please request a new password reset code.');
-    }
-
-    const cachedOtp = await this.redisService.get(otpKey);
-
-    if (!cachedOtp) {
-      throw new BadRequestException('OTP code has expired or is invalid. Please request a new code.');
-    }
-
-    if (cachedOtp !== otpInput) {
-      const newAttempts = attempts + 1;
-      await this.redisService.set(attemptsKey, newAttempts.toString(), 300);
-      throw new BadRequestException(`Invalid OTP code. ${5 - newAttempts} attempts remaining.`);
-    }
-
-    await this.redisService.del(otpKey);
-    await this.redisService.del(attemptsKey);
-
-    const resetToken = crypto.randomBytes(32).toString('hex');
-    const resetTokenKey = `password-reset:token:${resetToken}`;
-
-    await this.redisService.set(resetTokenKey, email, 600);
-
-    this.logger.log(`OTP code verified successfully for: ${email}`);
-
-    return {
-      success: true,
-      message: 'OTP code verified successfully.',
-      data: {
-        resetToken,
-      },
-    };
-  }
-
-  /**
-   * Reset user password using single-use reset token and invalidate all active sessions.
-   */
-  async resetPassword(dto: ResetPasswordDto) {
-    const resetTokenKey = `password-reset:token:${dto.resetToken}`;
-
-    const email = await this.redisService.get(resetTokenKey);
-
-    if (!email) {
-      throw new BadRequestException('Reset token is invalid or has expired. Please verify your OTP again.');
-    }
-
-    await this.redisService.del(resetTokenKey);
-
+    // 1. Check if user exists in PostgreSQL
     const user = await this.prisma.user.findUnique({
       where: { email },
     });
 
     if (!user) {
-      throw new BadRequestException('User account not found.');
+      throw new BadRequestException('Invalid email or expired OTP');
     }
 
+    // 2. Check brute-force attempts protection (Max 5 attempts)
+    const attemptsKey = `password-reset-attempts:${email}`;
+    const attemptsStr = await this.redisService.get(attemptsKey);
+    const attempts = attemptsStr ? parseInt(attemptsStr, 10) : 0;
+
+    if (attempts >= 5) {
+      await this.redisService.del(`password-reset-otp:${email}`);
+      throw new BadRequestException('Too many failed OTP attempts. Please request a new password reset OTP.');
+    }
+
+    // 3. Fetch stored OTP from Redis
+    const otpKey = `password-reset-otp:${email}`;
+    const storedOtp = await this.redisService.get(otpKey);
+
+    if (!storedOtp) {
+      throw new BadRequestException('Invalid or expired OTP');
+    }
+
+    // 4. Compare OTP
+    if (storedOtp !== otpInput) {
+      const newAttempts = attempts + 1;
+      await this.redisService.set(attemptsKey, newAttempts.toString(), 300);
+      throw new BadRequestException('Invalid or expired OTP');
+    }
+
+    // 5. Hash new password securely with bcrypt
     const saltRounds = this.configService.get<number>('jwt.bcryptSaltRounds', 10);
     const hashedPassword = await bcrypt.hash(dto.newPassword, saltRounds);
 
+    // 6. Update user's password in PostgreSQL
     await this.prisma.user.update({
       where: { id: user.id },
       data: { password: hashedPassword },
     });
 
+    // 7. Revoke active user sessions
     await this.prisma.session.updateMany({
       where: { userId: user.id, isRevoked: false },
       data: { isRevoked: true },
     });
 
-    // Send confirmation email
+    // 8. Immediately delete OTP and attempt keys from Redis (single-use enforcement)
+    await this.redisService.del(otpKey);
+    await this.redisService.del(attemptsKey);
+
+    // 9. Dispatch password reset success confirmation email
     this.emailService
       .sendPasswordResetSuccessEmail(user.email, user.name || 'User')
       .catch((err) => this.logger.error(`Error sending password reset success email: ${err.message}`));
 
-    this.logger.log(`Password reset successfully for user: ${email} [${user.id}]. Revoked all sessions.`);
+    this.logger.log(`Password reset successfully for user: ${email} [${user.id}]`);
 
     return {
       success: true,
-      message: 'Password reset successfully. All active sessions have been logged out. Please log in with your new password.',
+      message: 'Password reset successfully.',
     };
   }
 

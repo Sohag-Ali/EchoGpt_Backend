@@ -31,7 +31,6 @@ import { RefreshTokenDto } from './dto/refresh-token.dto';
 import { VerifyEmailQueryDto } from './dto/verify-email.dto';
 import { ResendVerificationDto } from './dto/resend-verification.dto';
 import { ForgotPasswordDto } from './dto/forgot-password.dto';
-import { VerifyResetOtpDto } from './dto/verify-reset-otp.dto';
 import { ResetPasswordDto } from './dto/reset-password.dto';
 
 @ApiTags('Authentication')
@@ -187,40 +186,25 @@ export class AuthController {
   @Public()
   @Post('forgot-password')
   @HttpCode(HttpStatus.OK)
-  @ApiOperation({ summary: 'Request password reset 6-digit OTP code' })
+  @ApiOperation({ summary: 'Request password reset 6-digit OTP code sent to registered email' })
   @ApiResponse({
     status: 200,
-    description: 'OTP code generated and sent to email if account exists.',
+    description: 'If the email is registered, a password reset OTP has been sent to email.',
   })
   async forgotPassword(@Body() dto: ForgotPasswordDto) {
     return this.authService.forgotPassword(dto);
   }
 
   @Public()
-  @Post('verify-reset-otp')
-  @HttpCode(HttpStatus.OK)
-  @ApiOperation({ summary: 'Verify 6-digit OTP code and receive single-use reset token' })
-  @ApiResponse({
-    status: 200,
-    description: 'OTP verified successfully. Returns single-use reset token.',
-  })
-  @ApiBadRequestResponse({
-    description: 'OTP code is invalid, expired, or max attempts exceeded.',
-  })
-  async verifyResetOtp(@Body() dto: VerifyResetOtpDto) {
-    return this.authService.verifyResetOtp(dto);
-  }
-
-  @Public()
   @Post('reset-password')
   @HttpCode(HttpStatus.OK)
-  @ApiOperation({ summary: 'Reset account password and revoke all active sessions' })
+  @ApiOperation({ summary: 'Reset account password directly using email, OTP, and new password' })
   @ApiResponse({
     status: 200,
-    description: 'Password reset successfully. All active user sessions revoked.',
+    description: 'Password reset successfully. Active sessions revoked.',
   })
   @ApiBadRequestResponse({
-    description: 'Reset token is invalid or expired.',
+    description: 'Invalid or expired OTP, or maximum verification attempts exceeded.',
   })
   async resetPassword(@Body() dto: ResetPasswordDto) {
     return this.authService.resetPassword(dto);
@@ -239,8 +223,11 @@ export class AuthController {
   })
   async logout(
     @CurrentUser('id') userId: string,
+    @Res({ passthrough: true }) res: Response,
     @Body() dto?: RefreshTokenDto,
   ) {
+    res.clearCookie('accessToken');
+    res.clearCookie('refreshToken');
     return this.authService.logout(userId, dto);
   }
 
