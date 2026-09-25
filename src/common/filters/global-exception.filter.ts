@@ -18,8 +18,8 @@ export interface ErrorResponseBody {
 }
 
 @Catch()
-export class HttpExceptionFilter implements ExceptionFilter {
-  private readonly logger = new Logger(HttpExceptionFilter.name);
+export class GlobalExceptionFilter implements ExceptionFilter {
+  private readonly logger = new Logger(GlobalExceptionFilter.name);
 
   catch(exception: unknown, host: ArgumentsHost) {
     const ctx = host.switchToHttp();
@@ -75,3 +75,6 @@ export class HttpExceptionFilter implements ExceptionFilter {
     response.status(status).json(responseBody);
   }
 }
+
+// Backward compatibility alias
+export { GlobalExceptionFilter as HttpExceptionFilter };

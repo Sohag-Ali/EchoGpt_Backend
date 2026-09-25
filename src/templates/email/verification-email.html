@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Verify Your Email - EchoGPT</title>
+  <style>
+    body {
+      margin: 0;
+      padding: 0;
+      background-color: #0f172a;
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      color: #e2e8f0;
+    }
+    .container {
+      max-width: 600px;
+      margin: 40px auto;
+      background: #1e293b;
+      border-radius: 12px;
+      overflow: hidden;
+      box-shadow: 0 10px 25px rgba(0, 0, 0, 0.5);
+      border: 1px solid #334155;
+    }
+    .header {
+      background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%);
+      padding: 30px;
+      text-align: center;
+    }
+    .header h1 {
+      margin: 0;
+      color: #ffffff;
+      font-size: 26px;
+      font-weight: 700;
+      letter-spacing: -0.5px;
+    }
+    .content {
+      padding: 35px;
+      line-height: 1.6;
+    }
+    .content h2 {
+      color: #f8fafc;
+      font-size: 20px;
+      margin-top: 0;
+    }
+    .content p {
+      color: #94a3b8;
+      font-size: 15px;
+    }
+    .btn-wrapper {
+      text-align: center;
+      margin: 35px 0;
+    }
+    .btn {
+      background: linear-gradient(135deg, #6366f1 0%, #4f46e5 100%);
+      color: #ffffff !important;
+      padding: 14px 32px;
+      text-decoration: none;
+      border-radius: 8px;
+      font-weight: 600;
+      font-size: 16px;
+      display: inline-block;
+      box-shadow: 0 4px 14px rgba(79, 70, 229, 0.4);
+    }
+    .link-fallback {
+      background: #0f172a;
+      padding: 15px;
+      border-radius: 6px;
+      word-break: break-all;
+      font-size: 13px;
+      color: #38bdf8;
+      border: 1px solid #1e293b;
+    }
+    .footer {
+      padding: 20px;
+      text-align: center;
+      background: #0f172a;
+      font-size: 12px;
+      color: #64748b;
+      border-top: 1px solid #1e293b;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h1>EchoGPT Backend</h1>
+    </div>
+    <div class="content">
+      <h2>Welcome, {{name}}!</h2>
+      <p>Thank you for registering your EchoGPT account. To complete your setup and access all extension capabilities, please verify your email address below.</p>
+      <div class="btn-wrapper">
+        <a href="{{verificationUrl}}" class="btn" target="_blank">Verify Email Address</a>
+      </div>
+      <p>If the button above does not work, copy and paste the following link into your web browser:</p>
+      <div class="link-fallback">{{verificationUrl}}</div>
+      <p style="margin-top: 25px; font-size: 13px; color: #64748b;">This verification link will expire in <strong>{{expiresIn}}</strong>. If you did not create an account, you can safely ignore this email.</p>
+    </div>
+    <div class="footer">
+      &copy; EchoGPT AI System. All rights reserved.
+    </div>
+  </div>
+</body>
+</html>

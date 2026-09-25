@@ -34,9 +34,19 @@ export const envValidationSchema = Joi.object({
   REDIS_PASSWORD: Joi.string().allow('').optional(),
 
   // SMTP Email Server Config
+  SMTP_HOST: Joi.string().allow('').optional(),
+  SMTP_PORT: Joi.number().allow('').optional(),
   SMTP_USER: Joi.string().allow('').optional(),
   SMTP_PASSWORD: Joi.string().allow('').optional(),
   EMAIL_SENDER: Joi.string().allow('').optional(),
+
+  // Database Seed Credentials
+  ADMIN_NAME: Joi.string().allow('').optional(),
+  ADMIN_EMAIL: Joi.string().allow('').optional(),
+  ADMIN_PASSWORD: Joi.string().allow('').optional(),
+  USER_NAME: Joi.string().allow('').optional(),
+  USER_EMAIL: Joi.string().allow('').optional(),
+  USER_PASSWORD: Joi.string().allow('').optional(),
 
   // AI Provider Integration Keys
   OPENAI_API_KEY: Joi.string().allow('').optional(),

@@ -4,12 +4,20 @@ import { APP_FILTER, APP_GUARD, APP_INTERCEPTOR } from '@nestjs/core';
 
 import configuration from './config/configuration';
 import { envValidationSchema } from './config/env.schema';
-import { PrismaModule } from './core/database/prisma.module';
-import { RedisModule } from './core/redis/redis.module';
-import { AuthModule } from './modules/auth/auth.module';
-import { JwtAuthGuard } from './core/auth/guards/jwt-auth.guard';
-import { RolesGuard } from './core/auth/guards/roles.guard';
-import { HttpExceptionFilter } from './common/filters/http-exception.filter';
+import { PrismaModule } from './prisma/prisma.module';
+import { RedisModule } from './redis/redis.module';
+import { MailModule } from './mail/mail.module';
+import { AuthModule } from './auth/auth.module';
+import { UsersModule } from './users/users.module';
+import { SubscriptionsModule } from './subscriptions/subscriptions.module';
+import { ProvidersModule } from './providers/providers.module';
+import { ChatsModule } from './chats/chats.module';
+import { SearchesModule } from './searches/searches.module';
+import { AdminModule } from './admin/admin.module';
+
+import { JwtAuthGuard } from './auth/guards/jwt-auth.guard';
+import { RolesGuard } from './auth/guards/roles.guard';
+import { GlobalExceptionFilter } from './common/filters/global-exception.filter';
 import { LoggingInterceptor } from './common/interceptors/logging.interceptor';
 import { AppController } from './app.controller';
 
@@ -31,7 +39,14 @@ import { AppController } from './app.controller';
     }),
     PrismaModule,
     RedisModule,
+    MailModule,
     AuthModule,
+    UsersModule,
+    SubscriptionsModule,
+    ProvidersModule,
+    ChatsModule,
+    SearchesModule,
+    AdminModule,
   ],
   controllers: [AppController],
   providers: [
@@ -45,7 +60,7 @@ import { AppController } from './app.controller';
     },
     {
       provide: APP_FILTER,
-      useClass: HttpExceptionFilter,
+      useClass: GlobalExceptionFilter,
     },
     {
       provide: APP_INTERCEPTOR,

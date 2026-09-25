@@ -11,9 +11,9 @@ import { JwtService } from '@nestjs/jwt';
 import { RoleType, SubscriptionPlan, SubscriptionStatus } from '@prisma/client';
 import * as bcrypt from 'bcrypt';
 import * as crypto from 'crypto';
-import { PrismaService } from '../../core/database/prisma.service';
-import { RedisService } from '../../core/redis/redis.service';
-import { EmailService } from '../../core/email/email.service';
+import { PrismaService } from '../prisma/prisma.service';
+import { RedisService } from '../redis/redis.service';
+import { EmailService } from '../mail/mail.service';
 import { RegisterDto } from './dto/register.dto';
 import { LoginDto } from './dto/login.dto';
 import { RefreshTokenDto } from './dto/refresh-token.dto';
@@ -189,6 +189,11 @@ export class AuthService {
       where: { id: tokenRecord.id },
     });
 
+    // 5. Send Welcome Email
+    this.emailService
+      .sendWelcomeEmail(tokenRecord.user.email, tokenRecord.user.name || 'User')
+      .catch((err) => this.logger.error(`Error sending welcome email: ${err.message}`));
+
     this.logger.log(`Verified email address for user: ${tokenRecord.user.email} [${tokenRecord.userId}]`);
 
     return {
@@ -259,7 +264,6 @@ export class AuthService {
       where: { email },
     });
 
-    // Uniform response to avoid account enumeration
     if (!user) {
       return {
         success: true,
@@ -273,12 +277,10 @@ export class AuthService {
     const otpKey = `password-reset:otp:${email}`;
     const attemptsKey = `password-reset:attempts:${email}`;
 
-    // Store OTP in Redis with 5-minute (300s) TTL
     await this.redisService.set(otpKey, otp, 300);
     await this.redisService.del(attemptsKey);
 
-    // Send OTP via email
-    await this.emailService.sendPasswordResetOtpEmail(user.email, otp, user.name || 'User');
+    await this.emailService.sendPasswordResetEmail(user.email, otp, user.name || 'User');
 
     this.logger.log(`Generated and dispatched password reset OTP for: ${user.email}`);
 
@@ -298,7 +300,6 @@ export class AuthService {
     const otpKey = `password-reset:otp:${email}`;
     const attemptsKey = `password-reset:attempts:${email}`;
 
-    // 1. Check rate limit attempts
     const attemptsStr = await this.redisService.get(attemptsKey);
     const attempts = attemptsStr ? parseInt(attemptsStr, 10) : 0;
 
@@ -306,29 +307,25 @@ export class AuthService {
       throw new BadRequestException('Too many failed OTP attempts. Please request a new password reset code.');
     }
 
-    // 2. Fetch stored OTP from Redis
     const cachedOtp = await this.redisService.get(otpKey);
 
     if (!cachedOtp) {
       throw new BadRequestException('OTP code has expired or is invalid. Please request a new code.');
     }
 
-    // 3. Compare OTP
     if (cachedOtp !== otpInput) {
       const newAttempts = attempts + 1;
       await this.redisService.set(attemptsKey, newAttempts.toString(), 300);
       throw new BadRequestException(`Invalid OTP code. ${5 - newAttempts} attempts remaining.`);
     }
 
-    // 4. OTP Valid! Clean up OTP & attempts from Redis
     await this.redisService.del(otpKey);
     await this.redisService.del(attemptsKey);
 
-    // 5. Issue single-use temporary password reset token (10-minute TTL in Redis)
     const resetToken = crypto.randomBytes(32).toString('hex');
     const resetTokenKey = `password-reset:token:${resetToken}`;
 
-    await this.redisService.set(resetTokenKey, email, 600); // 10 minutes
+    await this.redisService.set(resetTokenKey, email, 600);
 
     this.logger.log(`OTP code verified successfully for: ${email}`);
 
@@ -347,17 +344,14 @@ export class AuthService {
   async resetPassword(dto: ResetPasswordDto) {
     const resetTokenKey = `password-reset:token:${dto.resetToken}`;
 
-    // 1. Retrieve associated email from Redis
     const email = await this.redisService.get(resetTokenKey);
 
     if (!email) {
       throw new BadRequestException('Reset token is invalid or has expired. Please verify your OTP again.');
     }
 
-    // 2. Single-use token: invalidate immediately
     await this.redisService.del(resetTokenKey);
 
-    // 3. Find user in database
     const user = await this.prisma.user.findUnique({
       where: { email },
     });
@@ -366,21 +360,23 @@ export class AuthService {
       throw new BadRequestException('User account not found.');
     }
 
-    // 4. Hash new password
     const saltRounds = this.configService.get<number>('jwt.bcryptSaltRounds', 10);
     const hashedPassword = await bcrypt.hash(dto.newPassword, saltRounds);
 
-    // 5. Update password in PostgreSQL
     await this.prisma.user.update({
       where: { id: user.id },
       data: { password: hashedPassword },
     });
 
-    // 6. Invalidate ALL active sessions across all devices
     await this.prisma.session.updateMany({
       where: { userId: user.id, isRevoked: false },
       data: { isRevoked: true },
     });
+
+    // Send confirmation email
+    this.emailService
+      .sendPasswordResetSuccessEmail(user.email, user.name || 'User')
+      .catch((err) => this.logger.error(`Error sending password reset success email: ${err.message}`));
 
     this.logger.log(`Password reset successfully for user: ${email} [${user.id}]. Revoked all sessions.`);
 
@@ -396,7 +392,6 @@ export class AuthService {
   async login(dto: LoginDto, metadata: ClientMetadata) {
     const email = dto.email.trim().toLowerCase();
 
-    // 1. Find user by email
     const user = await this.prisma.user.findUnique({
       where: { email },
       include: {
@@ -416,16 +411,13 @@ export class AuthService {
       throw new UnauthorizedException('Your account has been deactivated. Please contact support.');
     }
 
-    // 2. Validate password via bcrypt
     const isPasswordValid = await bcrypt.compare(dto.password, user.password);
     if (!isPasswordValid) {
       throw new UnauthorizedException('Invalid email address or password.');
     }
 
-    // 3. Issue Access & Refresh tokens
     const tokens = await this.generateTokens(user.id, user.email, user.role.name);
 
-    // 4. Hash refresh token & record Session entry
     const saltRounds = this.configService.get<number>('jwt.bcryptSaltRounds', 10);
     const refreshTokenHash = await bcrypt.hash(tokens.refreshToken, saltRounds);
 
@@ -474,7 +466,6 @@ export class AuthService {
   async refreshToken(dto: RefreshTokenDto, metadata: ClientMetadata) {
     const refreshSecret = this.configService.get<string>('jwt.refreshSecret');
 
-    // 1. Verify Refresh Token JWT signature & payload
     let payload: any;
     try {
       payload = await this.jwtService.verifyAsync(dto.refreshToken, {
@@ -490,7 +481,6 @@ export class AuthService {
 
     const userId = payload.sub;
 
-    // 2. Fetch User
     const user = await this.prisma.user.findUnique({
       where: { id: userId },
       include: { role: true },
@@ -500,7 +490,6 @@ export class AuthService {
       throw new UnauthorizedException('User account not found or deactivated.');
     }
 
-    // 3. Find active matching session
     const activeSessions = await this.prisma.session.findMany({
       where: {
         userId,
@@ -527,16 +516,13 @@ export class AuthService {
       throw new UnauthorizedException('Refresh token has been revoked or reused.');
     }
 
-    // 4. Generate NEW Access & Refresh Tokens (Token Rotation)
     const tokens = await this.generateTokens(user.id, user.email, user.role.name);
 
-    // 5. Revoke old session
     await this.prisma.session.update({
       where: { id: matchingSession.id },
       data: { isRevoked: true },
     });
 
-    // 6. Record NEW active session
     const saltRounds = this.configService.get<number>('jwt.bcryptSaltRounds', 10);
     const newRefreshTokenHash = await bcrypt.hash(tokens.refreshToken, saltRounds);
 
@@ -587,7 +573,6 @@ export class AuthService {
         }
       }
     } else {
-      // Revoke all active sessions for this user
       await this.prisma.session.updateMany({
         where: { userId, isRevoked: false },
         data: { isRevoked: true },
