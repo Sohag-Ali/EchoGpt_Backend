@@ -9,17 +9,15 @@
     "target": "ES2023",
     "sourceMap": true,
     "outDir": "./dist",
-    "baseUrl": "./",
-    "ignoreDeprecations": "6.0",
     "incremental": true,
     "skipLibCheck": true,
     "strict": true,
     "strictPropertyInitialization": false,
     "paths": {
-      "@config/*": ["src/config/*"],
-      "@core/*": ["src/core/*"],
-      "@common/*": ["src/common/*"],
-      "@modules/*": ["src/modules/*"]
+      "@config/*": ["./src/config/*"],
+      "@core/*": ["./src/core/*"],
+      "@common/*": ["./src/common/*"],
+      "@modules/*": ["./src/modules/*"]
     },
     "types": ["node"]
   }

@@ -71,13 +71,13 @@ model Role {
 }
 
 model User {
-  id              String   @id @default(uuid())
-  email           String   @unique
-  password        String?  // Nullable for OAuth/Google users
+  id              String  @id @default(uuid())
+  email           String  @unique
+  password        String? // Nullable for OAuth/Google users
   name            String?
-  avatarUrl       String?  @map("avatar_url")
-  isEmailVerified Boolean  @default(false) @map("is_email_verified")
-  isActive        Boolean  @default(true) @map("is_active")
+  avatarUrl       String? @map("avatar_url")
+  isEmailVerified Boolean @default(false) @map("is_email_verified")
+  isActive        Boolean @default(true) @map("is_active")
 
   roleId String @map("role_id")
   role   Role   @relation(fields: [roleId], references: [id])
