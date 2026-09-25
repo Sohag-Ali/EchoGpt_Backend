@@ -82,6 +82,7 @@ model User {
   roleId String @map("role_id")
   role   Role   @relation(fields: [roleId], references: [id])
 
+  profile                 UserProfile?
   sessions                Session[]
   subscriptions           Subscription[]
   chats                   Chat[]
@@ -96,6 +97,29 @@ model User {
   @@index([email])
   @@index([roleId])
   @@map("users")
+}
+
+model UserProfile {
+  id           String    @id @default(uuid())
+  userId       String    @unique @map("user_id")
+  user         User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  firstName    String?   @map("first_name")
+  lastName     String?   @map("last_name")
+  phone        String?
+  bio          String?   @db.Text
+  profileImage String?   @map("profile_image")
+  dateOfBirth  DateTime? @map("date_of_birth")
+  gender       String?
+  country      String?
+  city         String?
+  address      String?
+  website      String?
+  github       String?
+  linkedin     String?
+  createdAt    DateTime  @default(now()) @map("created_at")
+  updatedAt    DateTime  @updatedAt @map("updated_at")
+
+  @@map("user_profiles")
 }
 
 model Session {
