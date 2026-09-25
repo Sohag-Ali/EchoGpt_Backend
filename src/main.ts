@@ -2,6 +2,7 @@ import { BadRequestException, Logger, ValidationPipe } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { NestFactory } from '@nestjs/core';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
+import cookieParser from 'cookie-parser';
 import { AppModule } from './app.module';
 
 async function bootstrap() {
@@ -12,6 +13,9 @@ async function bootstrap() {
   const port = configService.get<number>('app.port', 5000);
   const environment = configService.get<string>('app.environment', 'development');
   const apiPrefix = configService.get<string>('app.apiPrefix', 'api/v1');
+
+  // Middleware for cookies
+  app.use(cookieParser());
 
   // Global Prefix
   app.setGlobalPrefix(apiPrefix);

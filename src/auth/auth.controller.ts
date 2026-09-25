@@ -8,7 +8,9 @@ import {
   Ip,
   Post,
   Query,
+  Res,
 } from '@nestjs/common';
+import { Response } from 'express';
 import {
   ApiBadRequestResponse,
   ApiBearerAuth,
@@ -92,10 +94,10 @@ export class AuthController {
   @Public()
   @Post('login')
   @HttpCode(HttpStatus.OK)
-  @ApiOperation({ summary: 'Authenticate user and issue JWT tokens' })
+  @ApiOperation({ summary: 'Authenticate user and set JWT tokens in HttpOnly cookies' })
   @ApiResponse({
     status: 200,
-    description: 'User authenticated successfully. Returns Access Token, Refresh Token, and User profile.',
+    description: 'User authenticated successfully. Tokens set in HttpOnly cookies (accessToken, refreshToken). Returns User profile in JSON response.',
   })
   @ApiUnauthorizedResponse({
     description: 'Invalid email address or password.',
@@ -104,8 +106,36 @@ export class AuthController {
     @Body() dto: LoginDto,
     @Headers('user-agent') userAgent: string,
     @Ip() ipAddress: string,
+    @Res({ passthrough: true }) res: Response,
   ) {
-    return this.authService.login(dto, { userAgent, ipAddress });
+    const result = await this.authService.login(dto, { userAgent, ipAddress });
+
+    const { accessToken, refreshToken, user } = result.data;
+    const isProduction = process.env.NODE_ENV === 'production';
+
+    // Access Token Cookie (24 hours = 86,400,000 ms)
+    res.cookie('accessToken', accessToken, {
+      httpOnly: true,
+      secure: isProduction,
+      sameSite: 'lax',
+      maxAge: 24 * 60 * 60 * 1000,
+    });
+
+    // Refresh Token Cookie (7 days = 604,800,000 ms)
+    res.cookie('refreshToken', refreshToken, {
+      httpOnly: true,
+      secure: isProduction,
+      sameSite: 'lax',
+      maxAge: 7 * 24 * 60 * 60 * 1000,
+    });
+
+    return {
+      success: result.success,
+      message: result.message,
+      data: {
+        user,
+      },
+    };
   }
 
   @Public()
