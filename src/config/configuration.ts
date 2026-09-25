@@ -33,4 +33,13 @@ export default () => ({
     anthropicApiKey: process.env.ANTHROPIC_API_KEY || '',
     googleGeminiApiKey: process.env.GOOGLE_GEMINI_API_KEY || '',
   },
+  bkash: {
+    baseUrl: process.env.BKASH_BASE_URL || 'https://tokenized.sandbox.bka.sh/v1.2.0-beta',
+    username: process.env.BKASH_USERNAME || '',
+    password: process.env.BKASH_PASSWORD || '',
+    appKey: process.env.BKASH_APP_KEY || '',
+    appSecret: process.env.BKASH_APP_SECRET || '',
+    callbackUrl: process.env.BKASH_CALLBACK_URL || 'http://localhost:5000/api/v1/payments/bkash/callback',
+    premiumPrice: parseFloat(process.env.BKASH_PREMIUM_PRICE || '500'),
+  },
 });

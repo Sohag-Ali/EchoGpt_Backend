@@ -14,6 +14,7 @@ import { ProvidersModule } from './providers/providers.module';
 import { ChatsModule } from './chats/chats.module';
 import { SearchesModule } from './searches/searches.module';
 import { AdminModule } from './admin/admin.module';
+import { PaymentsModule } from './payments/payments.module';
 
 import { JwtAuthGuard } from './auth/guards/jwt-auth.guard';
 import { RolesGuard } from './auth/guards/roles.guard';
@@ -43,6 +44,7 @@ import { AppController } from './app.controller';
     AuthModule,
     UsersModule,
     SubscriptionsModule,
+    PaymentsModule,
     ProvidersModule,
     ChatsModule,
     SearchesModule,

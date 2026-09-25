@@ -52,4 +52,13 @@ export const envValidationSchema = Joi.object({
   OPENAI_API_KEY: Joi.string().allow('').optional(),
   ANTHROPIC_API_KEY: Joi.string().allow('').optional(),
   GOOGLE_GEMINI_API_KEY: Joi.string().allow('').optional(),
+
+  // bKash Payment Gateway Credentials
+  BKASH_BASE_URL: Joi.string().allow('').optional(),
+  BKASH_USERNAME: Joi.string().allow('').optional(),
+  BKASH_PASSWORD: Joi.string().allow('').optional(),
+  BKASH_APP_KEY: Joi.string().allow('').optional(),
+  BKASH_APP_SECRET: Joi.string().allow('').optional(),
+  BKASH_CALLBACK_URL: Joi.string().allow('').optional(),
+  BKASH_PREMIUM_PRICE: Joi.number().default(500),
 });

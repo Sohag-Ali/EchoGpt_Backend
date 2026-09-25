@@ -22,16 +22,26 @@ enum RoleType {
 
 enum SubscriptionPlan {
   FREE
-  PRO
-  ENTERPRISE
+  PREMIUM
 }
 
 enum SubscriptionStatus {
   ACTIVE
-  CANCELED
+  CANCELLED
   EXPIRED
-  PAST_DUE
-  TRAILING
+  PENDING
+}
+
+enum PaymentProvider {
+  BKASH
+}
+
+enum PaymentStatus {
+  PENDING
+  COMPLETED
+  FAILED
+  CANCELLED
+  REFUNDED
 }
 
 enum ProviderType {
@@ -83,13 +93,14 @@ model User {
   role   Role   @relation(fields: [roleId], references: [id])
 
   profile                 UserProfile?
+  subscription            Subscription?
   sessions                Session[]
-  subscriptions           Subscription[]
   chats                   Chat[]
   webSearches             WebSearch[]
   apiUsageLogs            ApiUsageLog[]
   emailVerificationTokens EmailVerificationToken[]
   passwordResetTokens     PasswordResetToken[]
+  payments                Payment[]
 
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
@@ -141,10 +152,14 @@ model Session {
 
 model Subscription {
   id                     String             @id @default(uuid())
-  userId                 String             @map("user_id")
+  userId                 String             @unique @map("user_id")
   user                   User               @relation(fields: [userId], references: [id], onDelete: Cascade)
   plan                   SubscriptionPlan   @default(FREE)
   status                 SubscriptionStatus @default(ACTIVE)
+  monthlyLimit           Int                @default(50) @map("monthly_limit")
+  usedRequests           Int                @default(0) @map("used_requests")
+  cancelAtPeriodEnd      Boolean            @default(false) @map("cancel_at_period_end")
+  scheduledPlan          SubscriptionPlan?  @map("scheduled_plan")
   externalCustomerId     String?            @map("external_customer_id")
   externalSubscriptionId String?            @map("external_subscription_id")
   currentPeriodStart     DateTime           @default(now()) @map("current_period_start")
@@ -153,9 +168,35 @@ model Subscription {
   createdAt              DateTime           @default(now()) @map("created_at")
   updatedAt              DateTime           @updatedAt @map("updated_at")
 
+  payments Payment[]
+
   @@index([userId])
   @@index([status])
   @@map("subscriptions")
+}
+
+model Payment {
+  id                String          @id @default(uuid())
+  userId            String          @map("user_id")
+  user              User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  subscriptionId    String?         @map("subscription_id")
+  subscription      Subscription?   @relation(fields: [subscriptionId], references: [id], onDelete: SetNull)
+  provider          PaymentProvider @default(BKASH)
+  amount            Float
+  currency          String          @default("BDT")
+  status            PaymentStatus   @default(PENDING)
+  transactionId     String?         @unique @map("transaction_id")
+  providerPaymentId String?         @map("provider_payment_id")
+  invoiceId         String?         @unique @map("invoice_id")
+  metadata          Json?
+  createdAt         DateTime        @default(now()) @map("created_at")
+  updatedAt         DateTime        @updatedAt @map("updated_at")
+
+  @@index([userId])
+  @@index([subscriptionId])
+  @@index([status])
+  @@index([transactionId])
+  @@map("payments")
 }
 
 model AIProvider {

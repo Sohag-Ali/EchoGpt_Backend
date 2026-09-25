@@ -165,9 +165,10 @@ export class AuthService {
       });
     }
 
-    // 7. One-year initial free period for subscription
-    const oneYearFromNow = new Date();
-    oneYearFromNow.setFullYear(oneYearFromNow.getFullYear() + 1);
+    // 7. Calculate 1-month usage period for subscription
+    const currentPeriodStart = new Date();
+    const currentPeriodEnd = new Date();
+    currentPeriodEnd.setMonth(currentPeriodEnd.getMonth() + 1);
 
     try {
       // 8. Create User and FREE Subscription in PostgreSQL (OTP verified!)
@@ -179,12 +180,14 @@ export class AuthService {
           isEmailVerified: true,
           isActive: true,
           roleId: defaultRole.id,
-          subscriptions: {
+          subscription: {
             create: {
               plan: SubscriptionPlan.FREE,
               status: SubscriptionStatus.ACTIVE,
-              currentPeriodStart: new Date(),
-              currentPeriodEnd: oneYearFromNow,
+              monthlyLimit: 50,
+              usedRequests: 0,
+              currentPeriodStart,
+              currentPeriodEnd,
             },
           },
         },
@@ -194,6 +197,17 @@ export class AuthService {
           name: true,
           isEmailVerified: true,
           isActive: true,
+          subscription: {
+            select: {
+              id: true,
+              plan: true,
+              status: true,
+              monthlyLimit: true,
+              usedRequests: true,
+              currentPeriodStart: true,
+              currentPeriodEnd: true,
+            },
+          },
           createdAt: true,
         },
       });
@@ -508,10 +522,7 @@ export class AuthService {
       where: { email },
       include: {
         role: true,
-        subscriptions: {
-          where: { status: SubscriptionStatus.ACTIVE },
-          take: 1,
-        },
+        subscription: true,
       },
     });
 
@@ -550,6 +561,13 @@ export class AuthService {
 
     this.logger.log(`User logged in successfully: ${user.email} [${user.id}]`);
 
+    const subscriptionData = user.subscription
+      ? {
+          ...user.subscription,
+          remainingRequests: Math.max(0, user.subscription.monthlyLimit - user.subscription.usedRequests),
+        }
+      : null;
+
     return {
       success: true,
       message: 'Login successful.',
@@ -566,7 +584,7 @@ export class AuthService {
             id: user.role.id,
             name: user.role.name,
           },
-          subscription: user.subscriptions[0] || null,
+          subscription: subscriptionData,
         },
       },
     };
@@ -718,15 +736,16 @@ export class AuthService {
             name: true,
           },
         },
-        subscriptions: {
+        subscription: {
           select: {
             id: true,
             plan: true,
             status: true,
+            monthlyLimit: true,
+            usedRequests: true,
             currentPeriodStart: true,
             currentPeriodEnd: true,
           },
-          take: 1,
         },
         createdAt: true,
         updatedAt: true,

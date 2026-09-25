@@ -54,13 +54,14 @@ export class JwtStrategy extends PassportStrategy(Strategy, 'jwt') {
             name: true,
           },
         },
-        subscriptions: {
+        subscription: {
           select: {
             id: true,
             plan: true,
             status: true,
+            monthlyLimit: true,
+            usedRequests: true,
           },
-          take: 1,
         },
       },
     });

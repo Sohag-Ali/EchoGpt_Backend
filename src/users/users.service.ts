@@ -42,15 +42,16 @@ export class UsersService {
           name: true,
         },
       },
-      subscriptions: {
+      subscription: {
         select: {
           id: true,
           plan: true,
           status: true,
+          monthlyLimit: true,
+          usedRequests: true,
           currentPeriodStart: true,
           currentPeriodEnd: true,
         },
-        take: 1,
       },
       createdAt: true,
       updatedAt: true,
@@ -501,6 +502,7 @@ export class UsersService {
     // Transactional safe cascade deletion of all user relations
     await this.prisma.$transaction(async (tx) => {
       await tx.userProfile.deleteMany({ where: { userId: targetUserId } });
+      await tx.payment.deleteMany({ where: { userId: targetUserId } });
       await tx.session.deleteMany({ where: { userId: targetUserId } });
       await tx.subscription.deleteMany({ where: { userId: targetUserId } });
       await tx.chat.deleteMany({ where: { userId: targetUserId } });
