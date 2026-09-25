@@ -6,7 +6,7 @@ import configuration from './config/configuration';
 import { envValidationSchema } from './config/env.schema';
 import { PrismaModule } from './core/database/prisma.module';
 import { RedisModule } from './core/redis/redis.module';
-import { AuthModule } from './core/auth/auth.module';
+import { AuthModule } from './modules/auth/auth.module';
 import { JwtAuthGuard } from './core/auth/guards/jwt-auth.guard';
 import { HttpExceptionFilter } from './common/filters/http-exception.filter';
 import { LoggingInterceptor } from './common/interceptors/logging.interceptor';
