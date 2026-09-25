@@ -1,5 +1,4 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
+// This is your Prisma schema file for EchoGPT Backend
 
 generator client {
   provider = "prisma-client-js"
@@ -10,14 +9,254 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-// Foundation User model prepared for JWT authentication & EchoGPT features
+// ==========================================
+// ENUMS
+// ==========================================
+
+enum RoleType {
+  USER
+  PREMIUM_USER
+  ADMIN
+  SUPPORT
+}
+
+enum SubscriptionPlan {
+  FREE
+  PRO
+  ENTERPRISE
+}
+
+enum SubscriptionStatus {
+  ACTIVE
+  CANCELED
+  EXPIRED
+  PAST_DUE
+  TRAILING
+}
+
+enum ProviderType {
+  OPENAI
+  ANTHROPIC
+  GEMINI
+  CUSTOM
+}
+
+enum MessageRole {
+  SYSTEM
+  USER
+  ASSISTANT
+  TOOL
+}
+
+enum WebSearchStatus {
+  PENDING
+  COMPLETED
+  FAILED
+}
+
+// ==========================================
+// MODELS
+// ==========================================
+
+model Role {
+  id          String   @id @default(uuid())
+  name        RoleType @unique @default(USER)
+  description String?
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  users User[]
+
+  @@map("roles")
+}
+
 model User {
-  id        String   @id @default(uuid())
-  email     String   @unique
-  password  String?  // Nullable for OAuth/Google users
-  name      String?
+  id              String   @id @default(uuid())
+  email           String   @unique
+  password        String?  // Nullable for OAuth/Google users
+  name            String?
+  avatarUrl       String?  @map("avatar_url")
+  isEmailVerified Boolean  @default(false) @map("is_email_verified")
+  isActive        Boolean  @default(true) @map("is_active")
+
+  roleId String @map("role_id")
+  role   Role   @relation(fields: [roleId], references: [id])
+
+  sessions                Session[]
+  subscriptions           Subscription[]
+  chats                   Chat[]
+  webSearches             WebSearch[]
+  apiUsageLogs            ApiUsageLog[]
+  emailVerificationTokens EmailVerificationToken[]
+  passwordResetTokens     PasswordResetToken[]
+
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 
+  @@index([email])
+  @@index([roleId])
   @@map("users")
+}
+
+model Session {
+  id               String   @id @default(uuid())
+  userId           String   @map("user_id")
+  user             User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  refreshTokenHash String   @map("refresh_token_hash")
+  userAgent        String?  @map("user_agent")
+  ipAddress        String?  @map("ip_address")
+  isRevoked        Boolean  @default(false) @map("is_revoked")
+  expiresAt        DateTime @map("expires_at")
+  createdAt        DateTime @default(now()) @map("created_at")
+  updatedAt        DateTime @updatedAt @map("updated_at")
+
+  @@index([userId])
+  @@index([refreshTokenHash])
+  @@map("sessions")
+}
+
+model Subscription {
+  id                     String             @id @default(uuid())
+  userId                 String             @map("user_id")
+  user                   User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  plan                   SubscriptionPlan   @default(FREE)
+  status                 SubscriptionStatus @default(ACTIVE)
+  externalCustomerId     String?            @map("external_customer_id")
+  externalSubscriptionId String?            @map("external_subscription_id")
+  currentPeriodStart     DateTime           @default(now()) @map("current_period_start")
+  currentPeriodEnd       DateTime           @map("current_period_end")
+  canceledAt             DateTime?          @map("canceled_at")
+  createdAt              DateTime           @default(now()) @map("created_at")
+  updatedAt              DateTime           @updatedAt @map("updated_at")
+
+  @@index([userId])
+  @@index([status])
+  @@map("subscriptions")
+}
+
+model AIProvider {
+  id              String       @id @default(uuid())
+  name            String
+  providerType    ProviderType @map("provider_type")
+  modelName       String       @map("model_name")
+  baseUrl         String?      @map("base_url")
+  isActive        Boolean      @default(true) @map("is_active")
+  isDefault       Boolean      @default(false) @map("is_default")
+  costPer1kInput  Float        @default(0.0) @map("cost_per_1k_input")
+  costPer1kOutput Float        @default(0.0) @map("cost_per_1k_output")
+  createdAt       DateTime     @default(now()) @map("created_at")
+  updatedAt       DateTime     @updatedAt @map("updated_at")
+
+  chats        Chat[]
+  apiUsageLogs ApiUsageLog[]
+
+  @@index([providerType])
+  @@map("ai_providers")
+}
+
+model Chat {
+  id           String      @id @default(uuid())
+  title        String      @default("New Chat")
+  userId       String      @map("user_id")
+  user         User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  providerId   String?     @map("provider_id")
+  provider     AIProvider? @relation(fields: [providerId], references: [id], onDelete: SetNull)
+  systemPrompt String?     @map("system_prompt")
+  isPinned     Boolean     @default(false) @map("is_pinned")
+  isArchived   Boolean     @default(false) @map("is_archived")
+  createdAt    DateTime    @default(now()) @map("created_at")
+  updatedAt    DateTime    @updatedAt @map("updated_at")
+
+  messages Message[]
+
+  @@index([userId])
+  @@index([providerId])
+  @@index([updatedAt])
+  @@map("chats")
+}
+
+model Message {
+  id               String      @id @default(uuid())
+  chatId           String      @map("chat_id")
+  chat             Chat        @relation(fields: [chatId], references: [id], onDelete: Cascade)
+  role             MessageRole
+  content          String      @db.Text
+  promptTokens     Int?        @map("prompt_tokens")
+  completionTokens Int?        @map("completion_tokens")
+  totalTokens      Int?        @map("total_tokens")
+  latencyMs        Int?        @map("latency_ms")
+  createdAt        DateTime    @default(now()) @map("created_at")
+  updatedAt        DateTime    @updatedAt @map("updated_at")
+
+  webSearches WebSearch[]
+
+  @@index([chatId])
+  @@index([createdAt])
+  @@map("messages")
+}
+
+model WebSearch {
+  id        String          @id @default(uuid())
+  userId    String          @map("user_id")
+  user      User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  messageId String?         @map("message_id")
+  message   Message?        @relation(fields: [messageId], references: [id], onDelete: SetNull)
+  query     String
+  results   Json?
+  status    WebSearchStatus @default(PENDING)
+  latencyMs Int?            @map("latency_ms")
+  createdAt DateTime        @default(now()) @map("created_at")
+  updatedAt DateTime        @updatedAt @map("updated_at")
+
+  @@index([userId])
+  @@index([messageId])
+  @@map("web_searches")
+}
+
+model ApiUsageLog {
+  id               String      @id @default(uuid())
+  userId           String      @map("user_id")
+  user             User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  providerId       String?     @map("provider_id")
+  provider         AIProvider? @relation(fields: [providerId], references: [id], onDelete: SetNull)
+  modelName        String      @map("model_name")
+  promptTokens     Int         @default(0) @map("prompt_tokens")
+  completionTokens Int         @default(0) @map("completion_tokens")
+  totalTokens      Int         @default(0) @map("total_tokens")
+  estimatedCost    Float       @default(0.0) @map("estimated_cost")
+  endpoint         String?
+  latencyMs        Int?        @map("latency_ms")
+  createdAt        DateTime    @default(now()) @map("created_at")
+
+  @@index([userId])
+  @@index([providerId])
+  @@index([createdAt])
+  @@map("api_usage_logs")
+}
+
+model EmailVerificationToken {
+  id        String   @id @default(uuid())
+  userId    String   @map("user_id")
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tokenHash String   @unique @map("token_hash")
+  expiresAt DateTime @map("expires_at")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@index([userId])
+  @@index([tokenHash])
+  @@map("email_verification_tokens")
+}
+
+model PasswordResetToken {
+  id        String   @id @default(uuid())
+  userId    String   @map("user_id")
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tokenHash String   @unique @map("token_hash")
+  isUsed    Boolean  @default(false) @map("is_used")
+  expiresAt DateTime @map("expires_at")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@index([userId])
+  @@index([tokenHash])
+  @@map("password_reset_tokens")
 }
