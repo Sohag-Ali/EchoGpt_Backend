@@ -22,6 +22,8 @@ import { Public } from '../common/decorators/public.decorator';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
 import { AuthService } from './auth.service';
 import { RegisterDto } from './dto/register.dto';
+import { VerifyRegistrationDto } from './dto/verify-registration.dto';
+import { ResendRegistrationOtpDto } from './dto/resend-registration-otp.dto';
 import { LoginDto } from './dto/login.dto';
 import { RefreshTokenDto } from './dto/refresh-token.dto';
 import { VerifyEmailQueryDto } from './dto/verify-email.dto';
@@ -37,17 +39,54 @@ export class AuthController {
 
   @Public()
   @Post('register')
-  @HttpCode(HttpStatus.CREATED)
-  @ApiOperation({ summary: 'Register a new EchoGPT user account' })
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Initiate user registration and send 6-digit OTP to email' })
   @ApiResponse({
-    status: 201,
-    description: 'User registered successfully with default USER role and FREE subscription.',
+    status: 200,
+    description: 'Verification OTP sent to email. User is NOT created in PostgreSQL until OTP is verified.',
   })
   @ApiConflictResponse({
-    description: 'An account with this email address already exists.',
+    description: 'Email is already registered.',
   })
   async register(@Body() dto: RegisterDto) {
     return this.authService.register(dto);
+  }
+
+  @Public()
+  @Post('verify-registration')
+  @HttpCode(HttpStatus.CREATED)
+  @ApiOperation({ summary: 'Verify 6-digit OTP and complete account creation in PostgreSQL' })
+  @ApiResponse({
+    status: 201,
+    description: 'OTP verified successfully. User account and FREE subscription created in PostgreSQL.',
+  })
+  @ApiBadRequestResponse({
+    description: 'Invalid, expired OTP or maximum verification attempts exceeded.',
+  })
+  @ApiConflictResponse({
+    description: 'Email is already registered.',
+  })
+  async verifyRegistration(@Body() dto: VerifyRegistrationDto) {
+    return this.authService.verifyRegistration(dto);
+  }
+
+  @Public()
+  @Post('resend-registration-otp')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Resend registration OTP to email with 60s cooldown' })
+  @ApiResponse({
+    status: 200,
+    description: 'New verification OTP sent to email.',
+  })
+  @ApiBadRequestResponse({
+    description: 'No pending registration found for this email.',
+  })
+  @ApiResponse({
+    status: 429,
+    description: 'Too many requests. Resend cooldown (60 seconds) active.',
+  })
+  async resendRegistrationOtp(@Body() dto: ResendRegistrationOtpDto) {
+    return this.authService.resendRegistrationOtp(dto);
   }
 
   @Public()

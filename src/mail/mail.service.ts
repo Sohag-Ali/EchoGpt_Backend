@@ -36,6 +36,21 @@ export class MailService implements OnModuleInit {
   }
 
   /**
+   * Send Registration 6-Digit OTP code.
+   */
+  async sendRegistrationOtpEmail(toEmail: string, otp: string, name: string) {
+    const sender = this.configService.get<string>('smtp.sender', 'noreply@echogpt.io');
+
+    const htmlContent = this.templateService.renderTemplate('registration-otp', {
+      name,
+      otp,
+      expiresIn: '5 minutes',
+    });
+
+    await this.dispatchEmail(toEmail, 'Your EchoGPT Account Registration Verification OTP', htmlContent, sender);
+  }
+
+  /**
    * Send Email Verification link to user.
    */
   async sendVerificationEmail(toEmail: string, verificationToken: string, name: string) {

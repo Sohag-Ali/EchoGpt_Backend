@@ -1,6 +1,8 @@
 import {
   BadRequestException,
   ConflictException,
+  HttpException,
+  HttpStatus,
   Injectable,
   InternalServerErrorException,
   Logger,
@@ -15,6 +17,8 @@ import { PrismaService } from '../prisma/prisma.service';
 import { RedisService } from '../redis/redis.service';
 import { EmailService } from '../mail/mail.service';
 import { RegisterDto } from './dto/register.dto';
+import { VerifyRegistrationDto } from './dto/verify-registration.dto';
+import { ResendRegistrationOtpDto } from './dto/resend-registration-otp.dto';
 import { LoginDto } from './dto/login.dto';
 import { RefreshTokenDto } from './dto/refresh-token.dto';
 import { ForgotPasswordDto } from './dto/forgot-password.dto';
@@ -39,21 +43,116 @@ export class AuthService {
   ) {}
 
   /**
-   * Register a new user with default USER role and FREE subscription tier, and dispatch verification email.
+   * 1. Register a new user (Strict OTP Flow):
+   * Validates DTO, checks existing email in PostgreSQL, hashes password,
+   * stores pending data & hashed OTP in Redis with TTLs, and dispatches OTP email.
+   * DOES NOT create User, Session, or Subscription in PostgreSQL.
    */
   async register(dto: RegisterDto) {
     const email = dto.email.trim().toLowerCase();
 
-    // 1. Check if user already exists
+    // 1. Check if user already exists in PostgreSQL database
     const existingUser = await this.prisma.user.findUnique({
       where: { email },
     });
 
     if (existingUser) {
-      throw new ConflictException('An account with this email address already exists.');
+      throw new ConflictException('Email is already registered.');
     }
 
-    // 2. Fetch or initialize default USER role
+    // 2. Hash password securely (never store plain password in Redis)
+    const saltRounds = this.configService.get<number>('jwt.bcryptSaltRounds', 10);
+    const passwordHash = await bcrypt.hash(dto.password, saltRounds);
+
+    // 3. Generate a cryptographically secure 6-digit OTP
+    const otpNum = crypto.randomInt(100000, 1000000);
+    const otpStr = otpNum.toString();
+    const otpHash = crypto.createHash('sha256').update(otpStr).digest('hex');
+
+    // 4. Store pending registration data in Redis (10 minutes TTL = 600s)
+    await this.redisService.set(
+      `pending-registration:${email}`,
+      JSON.stringify({
+        name: dto.name.trim(),
+        email,
+        passwordHash,
+        createdAt: new Date().toISOString(),
+      }),
+      600,
+    );
+
+    // 5. Store OTP hash & attempts in Redis (5 minutes TTL = 300s)
+    await this.redisService.set(
+      `registration-otp:${email}`,
+      JSON.stringify({
+        otpHash,
+        attempts: 0,
+      }),
+      300,
+    );
+
+    // 6. Send OTP email using MailService
+    this.emailService
+      .sendRegistrationOtpEmail(email, otpStr, dto.name.trim())
+      .catch((err) => this.logger.error(`Error sending registration OTP email: ${err.message}`));
+
+    this.logger.log(`Generated registration OTP for pending email: ${email}`);
+
+    return {
+      success: true,
+      message: 'Verification OTP sent to your email',
+    };
+  }
+
+  /**
+   * 2. Verify Registration OTP:
+   * Validates OTP from Redis. Upon successful OTP verification, creates User
+   * and default FREE subscription in PostgreSQL, sets emailVerified = true,
+   * and cleans up Redis pending registration keys.
+   */
+  async verifyRegistration(dto: VerifyRegistrationDto) {
+    const email = dto.email.trim().toLowerCase();
+
+    // 1. Double check PostgreSQL to prevent duplicate registration
+    const existingUser = await this.prisma.user.findUnique({
+      where: { email },
+    });
+
+    if (existingUser) {
+      throw new ConflictException('Email is already registered.');
+    }
+
+    // 2. Fetch pending registration data from Redis
+    const pendingDataStr = await this.redisService.get(`pending-registration:${email}`);
+    if (!pendingDataStr) {
+      throw new BadRequestException('Pending registration expired or not found. Please register again.');
+    }
+    const pendingData = JSON.parse(pendingDataStr);
+
+    // 3. Fetch stored OTP data from Redis
+    const otpDataStr = await this.redisService.get(`registration-otp:${email}`);
+    if (!otpDataStr) {
+      throw new BadRequestException('Invalid or expired OTP');
+    }
+    const otpData = JSON.parse(otpDataStr);
+
+    // 4. Check for brute-force attempts limit (Max 5 attempts)
+    if (otpData.attempts >= 5) {
+      await this.redisService.del(`registration-otp:${email}`);
+      throw new BadRequestException('Maximum verification attempts exceeded. Please request a new OTP.');
+    }
+
+    // 5. Hash incoming OTP and compare
+    const inputOtpHash = crypto.createHash('sha256').update(dto.otp.trim()).digest('hex');
+    if (inputOtpHash !== otpData.otpHash) {
+      otpData.attempts += 1;
+      const remainingTtl = await this.redisService.ttl(`registration-otp:${email}`);
+      const ttlToUse = remainingTtl > 0 ? remainingTtl : 300;
+      await this.redisService.set(`registration-otp:${email}`, JSON.stringify(otpData), ttlToUse);
+      throw new BadRequestException('Invalid or expired OTP');
+    }
+
+    // 6. Fetch or initialize default USER role
     let defaultRole = await this.prisma.role.findUnique({
       where: { name: RoleType.USER },
     });
@@ -67,22 +166,19 @@ export class AuthService {
       });
     }
 
-    // 3. Hash password securely
-    const saltRounds = this.configService.get<number>('jwt.bcryptSaltRounds', 10);
-    const hashedPassword = await bcrypt.hash(dto.password, saltRounds);
-
-    // 4. One-year initial free period for subscription
+    // 7. One-year initial free period for subscription
     const oneYearFromNow = new Date();
     oneYearFromNow.setFullYear(oneYearFromNow.getFullYear() + 1);
 
     try {
-      // 5. Create user record with FREE subscription
+      // 8. Create User and FREE Subscription in PostgreSQL (OTP verified!)
       const createdUser = await this.prisma.user.create({
         data: {
           email,
-          name: dto.name.trim(),
-          password: hashedPassword,
-          isEmailVerified: false,
+          name: pendingData.name,
+          password: pendingData.passwordHash,
+          isEmailVerified: true,
+          isActive: true,
           roleId: defaultRole.id,
           subscriptions: {
             create: {
@@ -99,57 +195,95 @@ export class AuthService {
           name: true,
           isEmailVerified: true,
           isActive: true,
-          role: {
-            select: {
-              id: true,
-              name: true,
-            },
-          },
-          subscriptions: {
-            select: {
-              id: true,
-              plan: true,
-              status: true,
-              currentPeriodEnd: true,
-            },
-            take: 1,
-          },
           createdAt: true,
         },
       });
 
-      // 6. Generate & store secure email verification token
-      const rawVerificationToken = crypto.randomBytes(32).toString('hex');
-      const tokenHash = crypto.createHash('sha256').update(rawVerificationToken).digest('hex');
+      // 9. Clean up temporary registration data from Redis
+      await this.redisService.del(`pending-registration:${email}`);
+      await this.redisService.del(`registration-otp:${email}`);
+      await this.redisService.del(`resend-otp-cooldown:${email}`);
 
-      const expiresAt = new Date();
-      expiresAt.setHours(expiresAt.getHours() + 24); // 24 hours validity
-
-      await this.prisma.emailVerificationToken.create({
-        data: {
-          userId: createdUser.id,
-          tokenHash,
-          expiresAt,
-        },
-      });
-
-      // 7. Dispatch verification email (non-blocking)
+      // 10. Send Welcome Email
       this.emailService
-        .sendVerificationEmail(createdUser.email, rawVerificationToken, createdUser.name || 'User')
-        .catch((err) => this.logger.error(`Error sending verification email: ${err.message}`));
+        .sendWelcomeEmail(createdUser.email, createdUser.name || 'User')
+        .catch((err) => this.logger.error(`Error sending welcome email: ${err.message}`));
 
-      this.logger.log(`Successfully registered new user: ${createdUser.email} [${createdUser.id}]`);
+      this.logger.log(`User created in PostgreSQL after OTP verification: ${createdUser.email} [${createdUser.id}]`);
 
       return {
         success: true,
-        message: 'User registered successfully. Please check your email to verify your account.',
+        message: 'Registration verified and completed successfully',
         data: createdUser,
       };
-    } catch (err) {
-      const error = err as Error;
-      this.logger.error(`Failed to create user during registration: ${error.message}`, error.stack);
-      throw new InternalServerErrorException('Failed to complete user registration.');
+    } catch (error: any) {
+      if (error.code === 'P2002') {
+        throw new ConflictException('Email is already registered.');
+      }
+      this.logger.error(`Registration completion error for ${email}: ${error.message}`);
+      throw new InternalServerErrorException('Could not complete account creation.');
     }
+  }
+
+  /**
+   * 3. Resend Registration OTP:
+   * Generates a new OTP for an existing pending registration with rate-limiting cooldown.
+   */
+  async resendRegistrationOtp(dto: ResendRegistrationOtpDto) {
+    const email = dto.email.trim().toLowerCase();
+
+    // 1. Check if user already exists in PostgreSQL
+    const existingUser = await this.prisma.user.findUnique({
+      where: { email },
+    });
+
+    if (existingUser) {
+      throw new ConflictException('Email is already registered.');
+    }
+
+    // 2. Check rate-limit cooldown (60 seconds)
+    const isCooldownActive = await this.redisService.get(`resend-otp-cooldown:${email}`);
+    if (isCooldownActive) {
+      throw new HttpException('Please wait 60 seconds before requesting another OTP', HttpStatus.TOO_MANY_REQUESTS);
+    }
+
+    // 3. Check if pending registration exists in Redis
+    const pendingDataStr = await this.redisService.get(`pending-registration:${email}`);
+    if (!pendingDataStr) {
+      throw new BadRequestException('No pending registration found for this email. Please register again.');
+    }
+    const pendingData = JSON.parse(pendingDataStr);
+
+    // 4. Generate new secure 6-digit OTP
+    const otpNum = crypto.randomInt(100000, 1000000);
+    const otpStr = otpNum.toString();
+    const otpHash = crypto.createHash('sha256').update(otpStr).digest('hex');
+
+    // 5. Replace OTP in Redis (5 mins = 300s) and reset attempts
+    await this.redisService.set(
+      `registration-otp:${email}`,
+      JSON.stringify({
+        otpHash,
+        attempts: 0,
+      }),
+      300,
+    );
+
+    // 6. Reset pending registration TTL to 10 mins (600s)
+    await this.redisService.set(`pending-registration:${email}`, pendingDataStr, 600);
+
+    // 7. Set 60-second resend cooldown
+    await this.redisService.set(`resend-otp-cooldown:${email}`, 'true', 60);
+
+    // 8. Dispatch new OTP email
+    this.emailService
+      .sendRegistrationOtpEmail(email, otpStr, pendingData.name)
+      .catch((err) => this.logger.error(`Error resending registration OTP email: ${err.message}`));
+
+    return {
+      success: true,
+      message: 'New verification OTP sent to your email',
+    };
   }
 
   /**
