@@ -9,8 +9,11 @@ import {
   Post,
   UnauthorizedException,
 } from '@nestjs/common';
-import { ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
+import { ApiBearerAuth, ApiForbiddenResponse, ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
+import { RoleType } from '@prisma/client';
 import { Public } from './common/decorators/public.decorator';
+import { Roles } from './common/decorators/roles.decorator';
+import { CurrentUser } from './common/decorators/current-user.decorator';
 import { TestValidationDto } from './common/dto/test-validation.dto';
 
 @ApiTags('Health & System Testing')
@@ -42,6 +45,29 @@ export class AppController {
       success: true,
       message: 'Request payload passed validation successfully.',
       data: dto,
+    };
+  }
+
+  @Get('admin/dashboard')
+  @Roles(RoleType.ADMIN)
+  @HttpCode(HttpStatus.OK)
+  @ApiBearerAuth('JWT-auth')
+  @ApiOperation({ summary: 'Admin Dashboard metrics (Requires ADMIN role)' })
+  @ApiResponse({
+    status: 200,
+    description: 'Admin dashboard metrics retrieved successfully.',
+  })
+  @ApiForbiddenResponse({
+    description: 'Forbidden. Authenticated user lacks ADMIN role.',
+  })
+  getAdminDashboard(@CurrentUser() user: any) {
+    return {
+      success: true,
+      message: 'Admin metrics retrieved successfully.',
+      data: {
+        systemStatus: 'operational',
+        authenticatedUser: user,
+      },
     };
   }
 

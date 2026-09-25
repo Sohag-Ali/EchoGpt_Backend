@@ -7,8 +7,10 @@ import {
   HttpStatus,
   Ip,
   Post,
+  Query,
 } from '@nestjs/common';
 import {
+  ApiBadRequestResponse,
   ApiBearerAuth,
   ApiConflictResponse,
   ApiOperation,
@@ -22,6 +24,11 @@ import { AuthService } from './auth.service';
 import { RegisterDto } from './dto/register.dto';
 import { LoginDto } from './dto/login.dto';
 import { RefreshTokenDto } from './dto/refresh-token.dto';
+import { VerifyEmailQueryDto } from './dto/verify-email.dto';
+import { ResendVerificationDto } from './dto/resend-verification.dto';
+import { ForgotPasswordDto } from './dto/forgot-password.dto';
+import { VerifyResetOtpDto } from './dto/verify-reset-otp.dto';
+import { ResetPasswordDto } from './dto/reset-password.dto';
 
 @ApiTags('Authentication')
 @Controller('auth')
@@ -79,6 +86,75 @@ export class AuthController {
     @Ip() ipAddress: string,
   ) {
     return this.authService.refreshToken(dto, { userAgent, ipAddress });
+  }
+
+  @Public()
+  @Get('verify-email')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Verify user email address using single-use token' })
+  @ApiResponse({
+    status: 200,
+    description: 'Email address verified successfully.',
+  })
+  @ApiBadRequestResponse({
+    description: 'Verification token is invalid, expired, or missing.',
+  })
+  async verifyEmail(@Query() query: VerifyEmailQueryDto) {
+    return this.authService.verifyEmail(query.token);
+  }
+
+  @Public()
+  @Post('resend-verification')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Resend email verification link' })
+  @ApiResponse({
+    status: 200,
+    description: 'Verification email dispatched if unverified account exists.',
+  })
+  async resendVerification(@Body() dto: ResendVerificationDto) {
+    return this.authService.resendVerification(dto.email);
+  }
+
+  @Public()
+  @Post('forgot-password')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Request password reset 6-digit OTP code' })
+  @ApiResponse({
+    status: 200,
+    description: 'OTP code generated and sent to email if account exists.',
+  })
+  async forgotPassword(@Body() dto: ForgotPasswordDto) {
+    return this.authService.forgotPassword(dto);
+  }
+
+  @Public()
+  @Post('verify-reset-otp')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Verify 6-digit OTP code and receive single-use reset token' })
+  @ApiResponse({
+    status: 200,
+    description: 'OTP verified successfully. Returns single-use reset token.',
+  })
+  @ApiBadRequestResponse({
+    description: 'OTP code is invalid, expired, or max attempts exceeded.',
+  })
+  async verifyResetOtp(@Body() dto: VerifyResetOtpDto) {
+    return this.authService.verifyResetOtp(dto);
+  }
+
+  @Public()
+  @Post('reset-password')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Reset account password and revoke all active sessions' })
+  @ApiResponse({
+    status: 200,
+    description: 'Password reset successfully. All active user sessions revoked.',
+  })
+  @ApiBadRequestResponse({
+    description: 'Reset token is invalid or expired.',
+  })
+  async resetPassword(@Body() dto: ResetPasswordDto) {
+    return this.authService.resetPassword(dto);
   }
 
   @Post('logout')
