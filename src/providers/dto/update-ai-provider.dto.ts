@@ -30,7 +30,8 @@ export class UpdateAIProviderDto {
 
   @ApiPropertyOptional({
     description: 'New Provider API Key to replace existing key',
-    example: 'sk-proj-new-placeholder-api-key',
+    example: 'YOUR_PROVIDER_API_KEY',
+    writeOnly: true,
   })
   @IsOptional()
   @IsString()

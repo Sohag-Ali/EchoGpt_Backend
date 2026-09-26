@@ -58,7 +58,9 @@ async function bootstrap() {
   // Swagger OpenAPI Setup
   const swaggerConfig = new DocumentBuilder()
     .setTitle('EchoGPT Backend API')
-    .setDescription('Production-ready backend services for the EchoGPT Chrome Extension.')
+    .setDescription(
+      'Production-ready REST API backend for EchoGPT supporting AI Chat, SSE Streaming, Web Search with Redis Caching, bKash Payments, API Usage Logging, and Admin Analytics.',
+    )
     .setVersion('1.0.0')
     .addBearerAuth(
       {
@@ -71,6 +73,14 @@ async function bootstrap() {
       },
       'JWT-auth',
     )
+    .addTag('Authentication', 'User authentication, registration, login, OTP & token management')
+    .addTag('Users', 'User profile management and account operations')
+    .addTag('Subscriptions', 'User subscription plans and request limit monitoring')
+    .addTag('Payments', 'bKash payment gateway integration and payment history')
+    .addTag('AI Providers', 'AI Provider configuration and active health pings (Admin)')
+    .addTag('Chats', 'Conversational AI chat, streaming chat (SSE), and thread history')
+    .addTag('Searches', 'Web search engine queries, history, recent searches & autocomplete')
+    .addTag('Admin Management', 'System administration, user management, subscriptions, analytics & health')
     .build();
 
   const document = SwaggerModule.createDocument(app, swaggerConfig);

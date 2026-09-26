@@ -29,7 +29,8 @@ export class CreateAIProviderDto {
 
   @ApiProperty({
     description: 'Provider API Key (encrypted at rest)',
-    example: 'sk-proj-placeholder-key-never-exposed',
+    example: 'YOUR_PROVIDER_API_KEY',
+    writeOnly: true,
   })
   @IsString()
   @IsNotEmpty()
