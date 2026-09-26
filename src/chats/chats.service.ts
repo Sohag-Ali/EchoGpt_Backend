@@ -210,29 +210,8 @@ export class ChatsService {
         if (chunk.totalTokens) lastTotalTokens = chunk.totalTokens;
       }
 
-      // Send completion done chunk
-      res.write(`data: ${JSON.stringify({ done: true })}\n\n`);
-      res.end();
-    } catch (error: any) {
-      this.logger.error(
-        `Error during streaming AI response for user [${userId}]: ${error.message}`,
-      );
-      if (!res.headersSent) {
-        throw error;
-      } else {
-        res.write(
-          `data: ${JSON.stringify({
-            error: error.message || 'Failed to generate AI response.',
-          })}\n\n`,
-        );
-        res.end();
-        return;
-      }
-    }
-
-    // 3. Post-stream successful completion persistence & usage accounting
-    if (fullResponse && providerConfig) {
-      try {
+      // 3. Save ChatHistory, increment usage, and log API usage before closing stream
+      if (fullResponse && providerConfig) {
         const usageResult = await this.subscriptionsService.incrementUsage(
           userId,
           1,
@@ -298,10 +277,25 @@ export class ChatsService {
         this.logger.log(
           `Stream chat completed for user [${userId}] via [${providerConfig.providerType}] (${usedModel}). Remaining requests: ${usageResult?.remainingRequests}`,
         );
-      } catch (err: any) {
-        this.logger.error(
-          `Failed to record chat history/usage for stream: ${err.message}`,
+      }
+
+      // Send completion done chunk & end stream
+      res.write(`data: ${JSON.stringify({ done: true })}\n\n`);
+      res.end();
+    } catch (error: any) {
+      this.logger.error(
+        `Error during streaming AI response for user [${userId}]: ${error.message}`,
+      );
+      if (!res.headersSent) {
+        throw error;
+      } else {
+        res.write(
+          `data: ${JSON.stringify({
+            error: error.message || 'Failed to generate AI response.',
+          })}\n\n`,
         );
+        res.end();
+        return;
       }
     }
   }

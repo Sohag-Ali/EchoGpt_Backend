@@ -275,6 +275,8 @@ model WebSearch {
   updatedAt DateTime        @updatedAt @map("updated_at")
 
   @@index([userId])
+  @@index([userId, createdAt])
+  @@index([query])
   @@index([messageId])
   @@map("web_searches")
 }
