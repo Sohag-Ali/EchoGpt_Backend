@@ -184,14 +184,31 @@ export class BkashService {
         );
       }
 
+      let trxID = data.trxID;
+      let transactionStatus = data.transactionStatus;
+
+      if (!trxID && (data.statusCode === '0000' || data.statusCode === '2058')) {
+        try {
+          const queryRes = await this.queryPayment(paymentID);
+          if (queryRes?.trxID) {
+            trxID = queryRes.trxID;
+          }
+          if (queryRes?.transactionStatus) {
+            transactionStatus = queryRes.transactionStatus;
+          }
+        } catch (e: any) {
+          this.logger.warn(`Could not fetch queryPayment fallback for PaymentID [${paymentID}]: ${e.message}`);
+        }
+      }
+
       this.logger.log(
-        `bKash payment executed successfully. PaymentID: ${paymentID}, TrxID: ${data.trxID}`,
+        `bKash payment executed successfully. PaymentID: ${paymentID}, TrxID: ${trxID}, Status: ${transactionStatus}, Code: ${data.statusCode}`,
       );
 
       return {
-        paymentID: data.paymentID,
-        trxID: data.trxID,
-        transactionStatus: data.transactionStatus,
+        paymentID: data.paymentID || paymentID,
+        trxID: trxID || '',
+        transactionStatus: transactionStatus || 'Completed',
         amount: data.amount,
         currency: data.currency,
         statusCode: data.statusCode,

@@ -64,9 +64,14 @@ export class PaymentsController {
     description: 'bKash callback processed.',
   })
   async bkashCallbackGet(
-    @Query('paymentID') paymentID: string,
-    @Query('status') status: string,
+    @Query('paymentID') paymentID1?: string,
+    @Query('paymentId') paymentId2?: string,
+    @Query('status') rawStatus?: string,
   ) {
+    const rawPaymentId = paymentID1 || paymentId2 || '';
+    const paymentID = rawPaymentId.replace(/\/+$/, '').trim();
+    const status = (rawStatus || '').replace(/\/+$/, '').trim();
+
     return this.paymentsService.handleBkashCallback(paymentID, status);
   }
 
@@ -79,9 +84,14 @@ export class PaymentsController {
     description: 'bKash callback processed.',
   })
   async bkashCallbackPost(
-    @Body('paymentID') paymentID: string,
-    @Body('status') status: string,
+    @Body('paymentID') paymentID1?: string,
+    @Body('paymentId') paymentId2?: string,
+    @Body('status') rawStatus?: string,
   ) {
+    const rawPaymentId = paymentID1 || paymentId2 || '';
+    const paymentID = rawPaymentId.replace(/\/+$/, '').trim();
+    const status = (rawStatus || '').replace(/\/+$/, '').trim();
+
     return this.paymentsService.handleBkashCallback(paymentID, status);
   }
 

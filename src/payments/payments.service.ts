@@ -23,6 +23,32 @@ export class PaymentsService {
   ) {}
 
   /**
+   * Helper to resolve and normalize the bKash callback URL.
+   * Guarantees no trailing slashes and ensures full path /api/v1/payments/bkash/callback.
+   */
+  private getCallbackUrl(): string {
+    let rawUrl = this.configService.get<string>(
+      'bkash.callbackUrl',
+      'http://localhost:5000/api/v1/payments/bkash/callback',
+    ).trim();
+
+    // Strip trailing slashes
+    rawUrl = rawUrl.replace(/\/+$/, '');
+
+    // If callbackUrl ends at /api/v1, complete the path
+    if (rawUrl.endsWith('/api/v1')) {
+      rawUrl = `${rawUrl}/payments/bkash/callback`;
+    } else if (!rawUrl.includes('/payments/bkash/callback')) {
+      rawUrl = `${rawUrl}/api/v1/payments/bkash/callback`.replace(
+        /\/api\/v1\/api\/v1\//,
+        '/api/v1/',
+      );
+    }
+
+    return rawUrl;
+  }
+
+  /**
    * 1. Initiate bKash Subscription Upgrade Payment
    */
   async initiateUpgradePayment(userId: string) {
@@ -43,10 +69,7 @@ export class PaymentsService {
     }
 
     const premiumPrice = this.configService.get<number>('bkash.premiumPrice', 500);
-    const callbackUrl = this.configService.get<string>(
-      'bkash.callbackUrl',
-      'http://localhost:5000/api/v1/payments/bkash/callback',
-    );
+    const callbackUrl = this.getCallbackUrl();
 
     const invoiceId = `INV-${Date.now()}-${Math.floor(1000 + Math.random() * 9000)}`;
 
@@ -80,7 +103,7 @@ export class PaymentsService {
       });
 
       this.logger.log(
-        `Initiated bKash upgrade payment for user [${userId}], PaymentID: ${payment.id}, bKashID: ${bkashRes.paymentID}`,
+        `Initiated bKash upgrade payment for user [${userId}], InternalID: ${payment.id}, bKashID: ${bkashRes.paymentID}, Callback: ${callbackUrl}`,
       );
 
       return {
@@ -229,44 +252,66 @@ export class PaymentsService {
    * 3. Handle bKash Redirect Callback (Web Checkout Callback)
    */
   async handleBkashCallback(paymentID: string, status: string) {
+    const cleanPaymentId = (paymentID || '').replace(/\/+$/, '').trim();
+    const cleanStatus = (status || '').replace(/\/+$/, '').trim().toLowerCase();
+
+    this.logger.log(
+      `Received bKash callback redirect: PaymentID=${cleanPaymentId}, Status=${cleanStatus}`,
+    );
+
     const payment = await this.prisma.payment.findFirst({
-      where: { providerPaymentId: paymentID },
+      where: { providerPaymentId: cleanPaymentId },
     });
 
     if (!payment) {
+      this.logger.warn(`bKash callback failed: Payment record not found for PaymentID [${cleanPaymentId}]`);
       throw new NotFoundException('Payment record not found.');
     }
 
-    if (status === 'cancel') {
+    if (cleanStatus === 'cancel') {
       await this.prisma.payment.update({
         where: { id: payment.id },
         data: { status: PaymentStatus.CANCELLED },
       });
+      this.logger.log(`Payment [${payment.id}] marked CANCELLED via bKash callback.`);
       return {
         success: false,
         message: 'Payment was cancelled by user. Subscription remains FREE.',
+        data: {
+          paymentId: payment.id,
+          status: PaymentStatus.CANCELLED,
+        },
       };
     }
 
-    if (status === 'failure') {
+    if (cleanStatus === 'failure') {
       await this.prisma.payment.update({
         where: { id: payment.id },
         data: { status: PaymentStatus.FAILED },
       });
+      this.logger.log(`Payment [${payment.id}] marked FAILED via bKash callback.`);
       return {
         success: false,
         message: 'Payment failed with bKash. Subscription remains FREE.',
+        data: {
+          paymentId: payment.id,
+          status: PaymentStatus.FAILED,
+        },
       };
     }
 
-    if (status === 'success') {
+    if (cleanStatus === 'success') {
+      this.logger.log(
+        `bKash callback status SUCCESS for PaymentID [${cleanPaymentId}]. Proceeding to server-side execution.`,
+      );
       // Server-side verification & subscription upgrade
-      return this.executePayment(payment.userId, { paymentID });
+      return this.executePayment(payment.userId, { paymentID: cleanPaymentId });
     }
 
+    this.logger.warn(`Unknown bKash callback status [${cleanStatus}] for PaymentID [${cleanPaymentId}]`);
     return {
       success: false,
-      message: `Unknown payment status: ${status}`,
+      message: `Unknown payment status: ${cleanStatus}`,
     };
   }
 
