@@ -1,36 +1,63 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { IsNotEmpty, IsOptional, IsString } from 'class-validator';
+import { ProviderType } from '@prisma/client';
+import {
+  IsEnum,
+  IsNotEmpty,
+  IsOptional,
+  IsString,
+  MaxLength,
+} from 'class-validator';
 
 export class CreateChatDto {
   @ApiProperty({
-    example: 'Explain quantum computing in simple terms.',
-    description: 'User message prompt for the AI assistant',
+    example: 'Explain JavaScript closure in simple terms.',
+    description: 'User prompt for the AI assistant',
   })
-  @IsNotEmpty({ message: 'message prompt is required' })
-  @IsString({ message: 'message must be a string' })
-  message!: string;
+  @IsNotEmpty({ message: 'prompt should not be empty' })
+  @IsString({ message: 'prompt must be a string' })
+  @MaxLength(10000, { message: 'prompt must not exceed 10000 characters' })
+  prompt!: string;
 
   @ApiPropertyOptional({
-    example: 'Quantum Computing Intro',
-    description: 'Optional chat title',
+    example: 'Explain JavaScript closure in simple terms.',
+    description: 'Alias for prompt parameter',
   })
   @IsOptional()
-  @IsString({ message: 'title must be a string' })
-  title?: string;
+  @IsString({ message: 'message must be a string' })
+  @MaxLength(10000, { message: 'message must not exceed 10000 characters' })
+  message?: string;
+
+  @ApiPropertyOptional({
+    enum: ProviderType,
+    example: ProviderType.OPENAI,
+    description:
+      'Optional AI Provider engine (OPENAI, ANTHROPIC, GEMINI). If omitted, active default provider is used.',
+  })
+  @IsOptional()
+  @IsEnum(ProviderType)
+  provider?: ProviderType;
 
   @ApiPropertyOptional({
     example: 'provider-uuid-12345',
-    description: 'Optional AI Provider ID',
+    description: 'Optional AI Provider UUID',
   })
   @IsOptional()
-  @IsString({ message: 'providerId must be a string' })
+  @IsString()
   providerId?: string;
 
   @ApiPropertyOptional({
-    example: 'You are an expert AI assistant specializing in technology.',
+    example: 'JavaScript Closures',
+    description: 'Optional conversation title',
+  })
+  @IsOptional()
+  @IsString()
+  title?: string;
+
+  @ApiPropertyOptional({
+    example: 'You are an expert AI software architecture tutor.',
     description: 'Optional system prompt instructions',
   })
   @IsOptional()
-  @IsString({ message: 'systemPrompt must be a string' })
+  @IsString()
   systemPrompt?: string;
 }

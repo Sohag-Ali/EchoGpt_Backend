@@ -1,16 +1,22 @@
 import {
   Body,
   Controller,
+  Delete,
   Get,
   HttpCode,
   HttpStatus,
+  Param,
   Post,
+  Query,
 } from '@nestjs/common';
 import {
   ApiBadRequestResponse,
   ApiBearerAuth,
   ApiForbiddenResponse,
+  ApiNotFoundResponse,
   ApiOperation,
+  ApiParam,
+  ApiQuery,
   ApiResponse,
   ApiTags,
   ApiUnauthorizedResponse,
@@ -18,51 +24,133 @@ import {
 import { ChatsService } from './chats.service';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
 import { CreateChatDto } from './dto/create-chat.dto';
+import { GetChatsQueryDto } from './dto/get-chats-query.dto';
 
 @ApiTags('Chats')
+@ApiBearerAuth('JWT-auth')
 @Controller('chats')
 export class ChatsController {
   constructor(private readonly chatsService: ChatsService) {}
 
-  @Get()
-  @HttpCode(HttpStatus.OK)
-  @ApiBearerAuth('JWT-auth')
-  @ApiOperation({ summary: 'Get user chat history' })
-  @ApiResponse({
-    status: 200,
-    description: 'Conversations fetched successfully.',
-  })
-  @ApiUnauthorizedResponse({
-    description: 'Bearer token or HttpOnly cookie missing, expired, or invalid.',
-  })
-  async getConversations(@CurrentUser('id') userId: string) {
-    return this.chatsService.getUserConversations(userId);
-  }
-
   @Post()
-  @HttpCode(HttpStatus.OK)
-  @ApiBearerAuth('JWT-auth')
+  @HttpCode(HttpStatus.CREATED)
   @ApiOperation({
-    summary:
-      'Send message prompt & generate AI response (Enforces subscription limit)',
+    summary: 'Send message prompt & generate AI response',
+    description:
+      'Checks subscription usage limit, resolves requested/default AI provider via ProviderFactory, generates AI response, records chat history, increments usage, and logs API usage.',
   })
   @ApiResponse({
-    status: 200,
+    status: 201,
     description: 'AI response generated successfully.',
   })
   @ApiForbiddenResponse({
-    description: 'Forbidden. Monthly subscription request limit reached.',
+    description: 'Forbidden. Monthly subscription limit reached.',
   })
   @ApiBadRequestResponse({
-    description: 'Invalid prompt or AI provider request error.',
+    description: 'Invalid prompt or provider configuration error.',
   })
   @ApiUnauthorizedResponse({
-    description: 'Unauthorized access.',
+    description: 'Bearer token or HttpOnly cookie missing, expired, or invalid.',
   })
   async createChat(
     @CurrentUser('id') userId: string,
     @Body() dto: CreateChatDto,
   ) {
     return this.chatsService.createChat(userId, dto);
+  }
+
+  @Get()
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: 'Get authenticated user chat history (Paginated)',
+    description:
+      'Returns a paginated list of chats owned by the authenticated user, ordered by newest first.',
+  })
+  @ApiQuery({
+    name: 'page',
+    required: false,
+    example: 1,
+    description: 'Page number (default: 1)',
+  })
+  @ApiQuery({
+    name: 'limit',
+    required: false,
+    example: 20,
+    description: 'Items per page (default: 20, max: 100)',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'User chat history fetched successfully.',
+  })
+  @ApiUnauthorizedResponse({
+    description: 'Bearer token or HttpOnly cookie missing, expired, or invalid.',
+  })
+  async getUserConversations(
+    @CurrentUser('id') userId: string,
+    @Query() query: GetChatsQueryDto,
+  ) {
+    return this.chatsService.getUserConversations(userId, query);
+  }
+
+  @Get(':id')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: 'Get single chat conversation details by ID',
+    description:
+      'Returns full message history for the requested chat. Strictly enforces ownership security.',
+  })
+  @ApiParam({
+    name: 'id',
+    description: 'Unique UUID of the chat conversation',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Chat details retrieved successfully.',
+  })
+  @ApiForbiddenResponse({
+    description: 'Forbidden. You are not authorized to access another user’s chat.',
+  })
+  @ApiNotFoundResponse({
+    description: 'Chat not found.',
+  })
+  @ApiUnauthorizedResponse({
+    description: 'Unauthorized access.',
+  })
+  async getChatById(
+    @CurrentUser('id') userId: string,
+    @Param('id') id: string,
+  ) {
+    return this.chatsService.getChatById(userId, id);
+  }
+
+  @Delete(':id')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: 'Delete a chat conversation thread by ID',
+    description:
+      'Deletes the specified chat conversation thread and messages. Strictly enforces owner authorization.',
+  })
+  @ApiParam({
+    name: 'id',
+    description: 'Unique UUID of the chat conversation to delete',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Chat deleted successfully.',
+  })
+  @ApiForbiddenResponse({
+    description: 'Forbidden. You are not authorized to delete another user’s chat.',
+  })
+  @ApiNotFoundResponse({
+    description: 'Chat not found.',
+  })
+  @ApiUnauthorizedResponse({
+    description: 'Unauthorized access.',
+  })
+  async deleteChat(
+    @CurrentUser('id') userId: string,
+    @Param('id') id: string,
+  ) {
+    return this.chatsService.deleteChat(userId, id);
   }
 }

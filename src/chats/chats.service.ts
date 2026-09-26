@@ -1,13 +1,16 @@
 import {
   BadRequestException,
+  ForbiddenException,
   Injectable,
   Logger,
   NotFoundException,
 } from '@nestjs/common';
-import { MessageRole, ProviderType } from '@prisma/client';
+import { MessageRole } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { SubscriptionsService } from '../subscriptions/subscriptions.service';
+import { AIProviderFactory } from '../providers/factory/ai-provider.factory';
 import { CreateChatDto } from './dto/create-chat.dto';
+import { GetChatsQueryDto } from './dto/get-chats-query.dto';
 
 @Injectable()
 export class ChatsService {
@@ -16,125 +19,80 @@ export class ChatsService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly subscriptionsService: SubscriptionsService,
+    private readonly aiProviderFactory: AIProviderFactory,
   ) {}
 
   /**
-   * 1. GET /api/v1/chats - Get user chat history
-   */
-  async getUserConversations(userId: string) {
-    const chats = await this.prisma.chat.findMany({
-      where: { userId },
-      include: {
-        messages: {
-          orderBy: { createdAt: 'asc' },
-          take: 50,
-        },
-      },
-      orderBy: { updatedAt: 'desc' },
-      take: 20,
-    });
-
-    return {
-      success: true,
-      message: 'Chat conversations fetched successfully',
-      data: chats,
-    };
-  }
-
-  /**
-   * 2. POST /api/v1/chats - Create Chat & Generate AI Response
-   * Enforces Subscription Limit BEFORE execution, increments AFTER successful response.
+   * 1. POST /api/v1/chats - Create Chat & Generate AI Response
+   * Flow:
+   * 1. Validate prompt
+   * 2. Check subscription usage limit (Pre-execution gate)
+   * 3. Call AI Provider via AIProviderFactory abstraction
+   * 4. Save Chat & Messages history
+   * 5. Increment usage
+   * 6. Create API usage log
    */
   async createChat(userId: string, dto: CreateChatDto) {
+    const userPrompt = (dto.prompt || dto.message || '').trim();
+
+    if (!userPrompt) {
+      throw new BadRequestException('Prompt is required and cannot be empty.');
+    }
+
     // =========================================================================
-    // STEP 1: Check & Enforce Subscription Usage Limit (Pre-Execution Gate)
+    // STEP 1: Pre-Execution Gate - Enforce Subscription Usage Limit
     // =========================================================================
     await this.subscriptionsService.enforceUsageLimit(userId);
 
     // =========================================================================
-    // STEP 2: Resolve AI Provider
+    // STEP 2: Execute AI Request via Provider Factory Abstraction
+    // (Resolves provider configuration, checks isActive, decrypts key, calls engine)
     // =========================================================================
-    let provider = null;
-    if (dto.providerId) {
-      provider = await this.prisma.aIProvider.findUnique({
-        where: { id: dto.providerId },
-      });
-      if (!provider) {
-        throw new NotFoundException('Specified AI Provider not found.');
-      }
-    } else {
-      provider = await this.prisma.aIProvider.findFirst({
-        where: { isDefault: true, isActive: true },
-      });
+    const aiResponse = await this.aiProviderFactory.generateResponse(
+      userPrompt,
+      dto.provider,
+      {
+        systemPrompt: dto.systemPrompt,
+      },
+    );
 
-      if (!provider) {
-        provider = await this.prisma.aIProvider.findFirst({
-          where: { isActive: true },
-        });
-      }
-
-      if (!provider) {
-        // Fallback default AI Provider if table is empty
-        provider = await this.prisma.aIProvider.create({
-          data: {
-            name: 'EchoGPT Default AI (GPT-4o)',
-            providerType: ProviderType.OPENAI,
-            modelName: 'gpt-4o',
-            isActive: true,
-            isDefault: true,
-          },
-        });
-      }
-    }
-
-    const startTime = Date.now();
+    // Resolve Provider DB Config for relations
+    const providerConfig = await this.aiProviderFactory.getProviderConfig(
+      dto.provider,
+    );
 
     // =========================================================================
-    // STEP 3: Execute AI Provider Call
-    // (If this throws an error, usage is NOT incremented)
+    // STEP 3: Post-Execution - Increment Subscription Usage & Save History
     // =========================================================================
-    let aiResponseContent = '';
-    try {
-      aiResponseContent = `EchoGPT Assistant: I have processed your request ("${dto.message.substring(0, 50)}..."). This is a high-performance response powered by ${provider.name}.`;
-    } catch (error: any) {
-      this.logger.error(`AI Provider request failed for user [${userId}]: ${error.message}`);
-      throw new BadRequestException('Failed to generate AI response. Please try again.');
-    }
+    const usageResult = await this.subscriptionsService.incrementUsage(
+      userId,
+      1,
+    );
 
-    const latencyMs = Date.now() - startTime;
-    const promptTokens = Math.ceil(dto.message.length / 4);
-    const completionTokens = Math.ceil(aiResponseContent.length / 4);
-    const totalTokens = promptTokens + completionTokens;
-
-    // =========================================================================
-    // STEP 4: Post-Execution - Increment Usage & Log API Usage
-    // =========================================================================
-    const usageResult = await this.subscriptionsService.incrementUsage(userId, 1);
-
-    // Save Chat, Messages, and ApiUsageLog in PostgreSQL
-    const chatTitle = dto.title || dto.message.substring(0, 30) + '...';
+    const chatTitle = dto.title || (userPrompt.length > 30 ? userPrompt.substring(0, 30) + '...' : userPrompt);
 
     const chat = await this.prisma.$transaction(async (tx) => {
+      // 1. Persist Chat conversation thread and user/assistant messages
       const newChat = await tx.chat.create({
         data: {
           userId,
           title: chatTitle,
-          providerId: provider.id,
+          providerId: providerConfig.id,
           systemPrompt: dto.systemPrompt || null,
           messages: {
             create: [
               {
                 role: MessageRole.USER,
-                content: dto.message,
-                promptTokens,
-                totalTokens: promptTokens,
+                content: userPrompt,
+                promptTokens: aiResponse.inputTokens,
+                totalTokens: aiResponse.inputTokens,
               },
               {
                 role: MessageRole.ASSISTANT,
-                content: aiResponseContent,
-                completionTokens,
-                totalTokens: completionTokens,
-                latencyMs,
+                content: aiResponse.content,
+                completionTokens: aiResponse.outputTokens,
+                totalTokens: aiResponse.outputTokens,
+                latencyMs: aiResponse.responseTimeMs,
               },
             ],
           },
@@ -146,48 +104,163 @@ export class ChatsService {
         },
       });
 
-      // Create API usage log
+      // 2. Persist API usage audit log
+      const costPer1k = providerConfig.costPer1kInput || 0.002;
+      const estimatedCost = (aiResponse.totalTokens / 1000) * costPer1k;
+
       await tx.apiUsageLog.create({
         data: {
           userId,
-          providerId: provider.id,
-          modelName: provider.modelName || 'default',
-          promptTokens,
-          completionTokens,
-          totalTokens,
-          estimatedCost: (totalTokens / 1000) * 0.002,
+          providerId: providerConfig.id,
+          modelName: aiResponse.model || providerConfig.modelName || 'default',
+          promptTokens: aiResponse.inputTokens,
+          completionTokens: aiResponse.outputTokens,
+          totalTokens: aiResponse.totalTokens,
+          estimatedCost,
           endpoint: '/api/v1/chats',
-          latencyMs,
+          latencyMs: aiResponse.responseTimeMs,
         },
       });
 
       return newChat;
-    });
+    }, { timeout: 15000 });
 
     this.logger.log(
-      `Chat [${chat.id}] created for user [${userId}]. Usage incremented. Remaining: ${usageResult?.remainingRequests}`,
+      `Chat [${chat.id}] created for user [${userId}] via [${aiResponse.provider}] (${aiResponse.model}). Remaining requests: ${usageResult?.remainingRequests}`,
     );
 
     return {
       success: true,
-      message: 'AI response generated successfully',
+      message: 'Chat response generated successfully',
       data: {
-        chatId: chat.id,
-        title: chat.title,
-        provider: {
-          id: provider.id,
-          name: provider.name,
-          modelName: provider.modelName,
-        },
-        messages: chat.messages,
+        id: chat.id,
+        prompt: userPrompt,
+        response: aiResponse.content,
+        provider: aiResponse.provider,
+        model: aiResponse.model,
         usage: {
-          promptTokens,
-          completionTokens,
-          totalTokens,
-          latencyMs,
+          inputTokens: aiResponse.inputTokens,
+          outputTokens: aiResponse.outputTokens,
+          totalTokens: aiResponse.totalTokens,
+          responseTimeMs: aiResponse.responseTimeMs,
           remainingRequests: usageResult?.remainingRequests ?? 0,
         },
+        createdAt: chat.createdAt,
       },
+    };
+  }
+
+  /**
+   * 2. GET /api/v1/chats - Get current user chat history with pagination
+   */
+  async getUserConversations(userId: string, query: GetChatsQueryDto) {
+    const page = query.page || 1;
+    const limit = query.limit || 20;
+    const skip = (page - 1) * limit;
+
+    const [total, chats] = await Promise.all([
+      this.prisma.chat.count({
+        where: { userId },
+      }),
+      this.prisma.chat.findMany({
+        where: { userId },
+        include: {
+          messages: {
+            orderBy: { createdAt: 'asc' },
+          },
+          provider: {
+            select: {
+              id: true,
+              name: true,
+              providerType: true,
+              modelName: true,
+            },
+          },
+        },
+        orderBy: { createdAt: 'desc' },
+        skip,
+        take: limit,
+      }),
+    ]);
+
+    return {
+      success: true,
+      message: 'User chat history retrieved successfully',
+      data: chats,
+      meta: {
+        total,
+        page,
+        limit,
+        totalPages: Math.ceil(total / limit),
+      },
+    };
+  }
+
+  /**
+   * 3. GET /api/v1/chats/:id - Get specific chat by ID (Owner authorization enforced)
+   */
+  async getChatById(userId: string, id: string) {
+    const chat = await this.prisma.chat.findUnique({
+      where: { id },
+      include: {
+        messages: {
+          orderBy: { createdAt: 'asc' },
+        },
+        provider: {
+          select: {
+            id: true,
+            name: true,
+            providerType: true,
+            modelName: true,
+          },
+        },
+      },
+    });
+
+    if (!chat) {
+      throw new NotFoundException(`Chat with ID [${id}] not found.`);
+    }
+
+    if (chat.userId !== userId) {
+      throw new ForbiddenException(
+        'You are not authorized to access another user’s chat history.',
+      );
+    }
+
+    return {
+      success: true,
+      message: 'Chat details retrieved successfully',
+      data: chat,
+    };
+  }
+
+  /**
+   * 4. DELETE /api/v1/chats/:id - Delete chat by ID (Owner authorization enforced)
+   */
+  async deleteChat(userId: string, id: string) {
+    const chat = await this.prisma.chat.findUnique({
+      where: { id },
+    });
+
+    if (!chat) {
+      throw new NotFoundException(`Chat with ID [${id}] not found.`);
+    }
+
+    if (chat.userId !== userId) {
+      throw new ForbiddenException(
+        'You are not authorized to delete another user’s chat history.',
+      );
+    }
+
+    await this.prisma.chat.delete({
+      where: { id },
+    });
+
+    this.logger.log(`Chat [${id}] deleted by user [${userId}].`);
+
+    return {
+      success: true,
+      message: 'Chat deleted successfully',
     };
   }
 }
