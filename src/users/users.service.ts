@@ -520,4 +520,51 @@ export class UsersService {
       message: 'User deleted successfully',
     };
   }
+
+  /**
+   * 10. GET /users/me/usage-logs - Get authenticated user's API usage logs with pagination
+   */
+  async getMeUsageLogs(userId: string, page = 1, limit = 20) {
+    const pageNum = Number(page) || 1;
+    const limitNum = Math.min(Number(limit) || 20, 100);
+    const skip = (pageNum - 1) * limitNum;
+
+    const [total, items] = await Promise.all([
+      this.prisma.apiUsageLog.count({ where: { userId } }),
+      this.prisma.apiUsageLog.findMany({
+        where: { userId },
+        select: {
+          id: true,
+          endpoint: true,
+          requestType: true,
+          status: true,
+          modelName: true,
+          promptTokens: true,
+          completionTokens: true,
+          totalTokens: true,
+          estimatedCost: true,
+          latencyMs: true,
+          createdAt: true,
+        },
+        orderBy: { createdAt: 'desc' },
+        skip,
+        take: limitNum,
+      }),
+    ]);
+
+    return {
+      success: true,
+      message: 'User API usage logs fetched successfully',
+      data: {
+        items,
+        pagination: {
+          page: pageNum,
+          limit: limitNum,
+          total,
+          totalPages: Math.ceil(total / limitNum),
+        },
+      },
+    };
+  }
 }
+

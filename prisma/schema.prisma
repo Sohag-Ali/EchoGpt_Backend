@@ -64,6 +64,17 @@ enum WebSearchStatus {
   FAILED
 }
 
+enum ApiRequestType {
+  CHAT
+  CHAT_STREAM
+  WEB_SEARCH
+}
+
+enum ApiUsageStatus {
+  SUCCESS
+  FAILED
+}
+
 // ==========================================
 // MODELS
 // ==========================================
@@ -282,23 +293,27 @@ model WebSearch {
 }
 
 model ApiUsageLog {
-  id               String      @id @default(uuid())
-  userId           String      @map("user_id")
-  user             User        @relation(fields: [userId], references: [id], onDelete: Cascade)
-  providerId       String?     @map("provider_id")
-  provider         AIProvider? @relation(fields: [providerId], references: [id], onDelete: SetNull)
-  modelName        String      @map("model_name")
-  promptTokens     Int         @default(0) @map("prompt_tokens")
-  completionTokens Int         @default(0) @map("completion_tokens")
-  totalTokens      Int         @default(0) @map("total_tokens")
-  estimatedCost    Float       @default(0.0) @map("estimated_cost")
-  endpoint         String?
-  latencyMs        Int?        @map("latency_ms")
-  createdAt        DateTime    @default(now()) @map("created_at")
+  id               String         @id @default(uuid())
+  userId           String         @map("user_id")
+  user             User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  providerId       String?        @map("provider_id")
+  provider         AIProvider?    @relation(fields: [providerId], references: [id], onDelete: SetNull)
+  requestType      ApiRequestType @default(CHAT) @map("request_type")
+  endpoint         String         @default("/api/v1/chats")
+  status           ApiUsageStatus @default(SUCCESS)
+  modelName        String?        @map("model_name")
+  promptTokens     Int            @default(0) @map("prompt_tokens")
+  completionTokens Int            @default(0) @map("completion_tokens")
+  totalTokens      Int            @default(0) @map("total_tokens")
+  estimatedCost    Float          @default(0.0) @map("estimated_cost")
+  latencyMs        Int?           @map("latency_ms")
+  createdAt        DateTime       @default(now()) @map("created_at")
 
-  @@index([userId])
-  @@index([providerId])
-  @@index([createdAt])
+  @@index([userId, createdAt])
+  @@index([providerId, createdAt])
+  @@index([endpoint, createdAt])
+  @@index([requestType, createdAt])
+  @@index([status, createdAt])
   @@map("api_usage_logs")
 }
 

@@ -6,10 +6,11 @@ import {
   Logger,
   NotFoundException,
 } from '@nestjs/common';
-import { MessageRole } from '@prisma/client';
+import { ApiRequestType, ApiUsageStatus, MessageRole } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { SubscriptionsService } from '../subscriptions/subscriptions.service';
 import { AIProviderFactory } from '../providers/factory/ai-provider.factory';
+import { UsageLogsService } from '../usage-logs/usage-logs.service';
 import { CreateChatDto } from './dto/create-chat.dto';
 import { GetChatsQueryDto } from './dto/get-chats-query.dto';
 
@@ -21,17 +22,11 @@ export class ChatsService {
     private readonly prisma: PrismaService,
     private readonly subscriptionsService: SubscriptionsService,
     private readonly aiProviderFactory: AIProviderFactory,
+    private readonly usageLogsService: UsageLogsService,
   ) {}
 
   /**
    * 1. POST /api/v1/chats - Create Chat & Generate AI Response
-   * Flow:
-   * 1. Validate prompt
-   * 2. Check subscription usage limit (Pre-execution gate)
-   * 3. Call AI Provider via AIProviderFactory abstraction
-   * 4. Save Chat & Messages history
-   * 5. Increment usage
-   * 6. Create API usage log
    */
   async createChat(userId: string, dto: CreateChatDto) {
     const userPrompt = (dto.prompt || dto.message || '').trim();
@@ -40,91 +35,103 @@ export class ChatsService {
       throw new BadRequestException('Prompt is required and cannot be empty.');
     }
 
-    // =========================================================================
     // STEP 1: Pre-Execution Gate - Enforce Subscription Usage Limit
-    // =========================================================================
     await this.subscriptionsService.enforceUsageLimit(userId);
 
-    // =========================================================================
-    // STEP 2: Execute AI Request via Provider Factory Abstraction
-    // (Resolves provider configuration, checks isActive, decrypts key, calls engine)
-    // =========================================================================
-    const aiResponse = await this.aiProviderFactory.generateResponse(
-      userPrompt,
-      dto.provider,
-      {
-        systemPrompt: dto.systemPrompt,
-      },
-    );
+    const startTime = Date.now();
+    let aiResponse: any;
+    let providerConfig: any;
 
-    // Resolve Provider DB Config for relations
-    const providerConfig = await this.aiProviderFactory.getProviderConfig(
-      dto.provider,
-    );
+    try {
+      // STEP 2: Execute AI Request via Provider Factory Abstraction
+      aiResponse = await this.aiProviderFactory.generateResponse(
+        userPrompt,
+        dto.provider,
+        {
+          systemPrompt: dto.systemPrompt,
+        },
+      );
 
-    // =========================================================================
-    // STEP 3: Post-Execution - Increment Subscription Usage & Save History
-    // =========================================================================
+      providerConfig = await this.aiProviderFactory.getProviderConfig(
+        dto.provider,
+      );
+    } catch (error: any) {
+      const responseTimeMs = Date.now() - startTime;
+      await this.usageLogsService.createLog({
+        userId,
+        endpoint: '/api/v1/chats',
+        requestType: ApiRequestType.CHAT,
+        status: ApiUsageStatus.FAILED,
+        responseTimeMs,
+      });
+      throw error;
+    }
+
+    // STEP 3: Post-Execution - Increment Usage & Save History
     const usageResult = await this.subscriptionsService.incrementUsage(
       userId,
       1,
     );
 
-    const chatTitle = dto.title || (userPrompt.length > 30 ? userPrompt.substring(0, 30) + '...' : userPrompt);
+    const chatTitle =
+      dto.title ||
+      (userPrompt.length > 30 ? userPrompt.substring(0, 30) + '...' : userPrompt);
 
-    const chat = await this.prisma.$transaction(async (tx) => {
-      // 1. Persist Chat conversation thread and user/assistant messages
-      const newChat = await tx.chat.create({
-        data: {
-          userId,
-          title: chatTitle,
-          providerId: providerConfig.id,
-          systemPrompt: dto.systemPrompt || null,
-          messages: {
-            create: [
-              {
-                role: MessageRole.USER,
-                content: userPrompt,
-                promptTokens: aiResponse.inputTokens,
-                totalTokens: aiResponse.inputTokens,
-              },
-              {
-                role: MessageRole.ASSISTANT,
-                content: aiResponse.content,
-                completionTokens: aiResponse.outputTokens,
-                totalTokens: aiResponse.outputTokens,
-                latencyMs: aiResponse.responseTimeMs,
-              },
-            ],
+    const chat = await this.prisma.$transaction(
+      async (tx) => {
+        const newChat = await tx.chat.create({
+          data: {
+            userId,
+            title: chatTitle,
+            providerId: providerConfig.id,
+            systemPrompt: dto.systemPrompt || null,
+            messages: {
+              create: [
+                {
+                  role: MessageRole.USER,
+                  content: userPrompt,
+                  promptTokens: aiResponse.inputTokens,
+                  totalTokens: aiResponse.inputTokens,
+                },
+                {
+                  role: MessageRole.ASSISTANT,
+                  content: aiResponse.content,
+                  completionTokens: aiResponse.outputTokens,
+                  totalTokens: aiResponse.outputTokens,
+                  latencyMs: aiResponse.responseTimeMs,
+                },
+              ],
+            },
           },
-        },
-        include: {
-          messages: {
-            orderBy: { createdAt: 'asc' },
+          include: {
+            messages: {
+              orderBy: { createdAt: 'asc' },
+            },
           },
-        },
-      });
+        });
 
-      // 2. Persist API usage audit log
-      const costPer1k = providerConfig.costPer1kInput || 0.002;
-      const estimatedCost = (aiResponse.totalTokens / 1000) * costPer1k;
+        return newChat;
+      },
+      { timeout: 15000 },
+    );
 
-      await tx.apiUsageLog.create({
-        data: {
-          userId,
-          providerId: providerConfig.id,
-          modelName: aiResponse.model || providerConfig.modelName || 'default',
-          promptTokens: aiResponse.inputTokens,
-          completionTokens: aiResponse.outputTokens,
-          totalTokens: aiResponse.totalTokens,
-          estimatedCost,
-          endpoint: '/api/v1/chats',
-          latencyMs: aiResponse.responseTimeMs,
-        },
-      });
+    // STEP 4: Centralized API Usage Audit Logging
+    const costPer1k = providerConfig.costPer1kInput || 0.002;
+    const estimatedCost = (aiResponse.totalTokens / 1000) * costPer1k;
 
-      return newChat;
-    }, { timeout: 15000 });
+    await this.usageLogsService.createLog({
+      userId,
+      providerId: providerConfig.id,
+      endpoint: '/api/v1/chats',
+      requestType: ApiRequestType.CHAT,
+      modelName: aiResponse.model || providerConfig.modelName || 'default',
+      promptTokens: aiResponse.inputTokens,
+      completionTokens: aiResponse.outputTokens,
+      totalTokens: aiResponse.totalTokens,
+      estimatedCost,
+      responseTimeMs: aiResponse.responseTimeMs,
+      status: ApiUsageStatus.SUCCESS,
+    });
 
     this.logger.log(
       `Chat [${chat.id}] created for user [${userId}] via [${aiResponse.provider}] (${aiResponse.model}). Remaining requests: ${usageResult?.remainingRequests}`,
@@ -161,10 +168,8 @@ export class ChatsService {
       throw new BadRequestException('Prompt is required and cannot be empty.');
     }
 
-    // 1. Enforce Subscription Usage Limit pre-execution gate
     await this.subscriptionsService.enforceUsageLimit(userId);
 
-    // 2. Set SSE Headers
     res.setHeader('Content-Type', 'text/event-stream');
     res.setHeader('Cache-Control', 'no-cache, no-transform');
     res.setHeader('Connection', 'keep-alive');
@@ -210,7 +215,6 @@ export class ChatsService {
         if (chunk.totalTokens) lastTotalTokens = chunk.totalTokens;
       }
 
-      // 3. Save ChatHistory, increment usage, and log API usage before closing stream
       if (fullResponse && providerConfig) {
         const usageResult = await this.subscriptionsService.incrementUsage(
           userId,
@@ -252,37 +256,47 @@ export class ChatsService {
               },
             });
 
-            const costPer1k = providerConfig.costPer1kInput || 0.002;
-            const estimatedCost = (lastTotalTokens / 1000) * costPer1k;
-
-            await tx.apiUsageLog.create({
-              data: {
-                userId,
-                providerId: providerConfig.id,
-                modelName: usedModel || providerConfig.modelName || 'default',
-                promptTokens: lastInputTokens,
-                completionTokens: lastOutputTokens,
-                totalTokens: lastTotalTokens,
-                estimatedCost,
-                endpoint: '/api/v1/chats/stream',
-                latencyMs: responseTimeMs,
-              },
-            });
-
             return newChat;
           },
           { timeout: 15000 },
         );
+
+        const costPer1k = providerConfig.costPer1kInput || 0.002;
+        const estimatedCost = (lastTotalTokens / 1000) * costPer1k;
+
+        // Exactly ONE API usage log after stream finishes
+        await this.usageLogsService.createLog({
+          userId,
+          providerId: providerConfig.id,
+          endpoint: '/api/v1/chats/stream',
+          requestType: ApiRequestType.CHAT_STREAM,
+          modelName: usedModel || providerConfig.modelName || 'default',
+          promptTokens: lastInputTokens,
+          completionTokens: lastOutputTokens,
+          totalTokens: lastTotalTokens,
+          estimatedCost,
+          responseTimeMs,
+          status: ApiUsageStatus.SUCCESS,
+        });
 
         this.logger.log(
           `Stream chat completed for user [${userId}] via [${providerConfig.providerType}] (${usedModel}). Remaining requests: ${usageResult?.remainingRequests}`,
         );
       }
 
-      // Send completion done chunk & end stream
       res.write(`data: ${JSON.stringify({ done: true })}\n\n`);
       res.end();
     } catch (error: any) {
+      const responseTimeMs = Date.now() - startTime;
+      await this.usageLogsService.createLog({
+        userId,
+        providerId: providerConfig?.id || null,
+        endpoint: '/api/v1/chats/stream',
+        requestType: ApiRequestType.CHAT_STREAM,
+        status: ApiUsageStatus.FAILED,
+        responseTimeMs,
+      });
+
       this.logger.error(
         `Error during streaming AI response for user [${userId}]: ${error.message}`,
       );

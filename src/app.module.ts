@@ -22,6 +22,8 @@ import { GlobalExceptionFilter } from './common/filters/global-exception.filter'
 import { LoggingInterceptor } from './common/interceptors/logging.interceptor';
 import { AppController } from './app.controller';
 
+import { UsageLogsModule } from './usage-logs/usage-logs.module';
+
 @Module({
   imports: [
     ConfigModule.forRoot({
@@ -41,6 +43,7 @@ import { AppController } from './app.controller';
     PrismaModule,
     RedisModule,
     MailModule,
+    UsageLogsModule,
     AuthModule,
     UsersModule,
     SubscriptionsModule,

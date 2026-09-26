@@ -1,9 +1,10 @@
 import { BadRequestException, Injectable, Logger } from '@nestjs/common';
-import { WebSearchStatus } from '@prisma/client';
+import { ApiRequestType, ApiUsageStatus, WebSearchStatus } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { SubscriptionsService } from '../subscriptions/subscriptions.service';
 import { WebSearchProviderService } from './providers/web-search-provider.service';
 import { SearchCacheService } from './services/search-cache.service';
+import { UsageLogsService } from '../usage-logs/usage-logs.service';
 import { SearchDto } from './dto/search.dto';
 import {
   RecentSearchesQueryDto,
@@ -19,6 +20,7 @@ export class SearchesService {
     private readonly webSearchProvider: WebSearchProviderService,
     private readonly searchCacheService: SearchCacheService,
     private readonly subscriptionsService: SubscriptionsService,
+    private readonly usageLogsService: UsageLogsService,
   ) {}
 
   /**
@@ -36,20 +38,33 @@ export class SearchesService {
 
     const startTime = Date.now();
     let cacheHit = false;
+    let searchResult: any;
 
-    // 2. Check Redis Cache First
-    let searchResult = await this.searchCacheService.get(query);
+    try {
+      // 2. Check Redis Cache First
+      searchResult = await this.searchCacheService.get(query);
 
-    if (searchResult) {
-      cacheHit = true;
-    } else {
-      // 3. Redis MISS -> Call External Search Provider
-      searchResult = await this.webSearchProvider.search(query, {
-        limit: 10,
+      if (searchResult) {
+        cacheHit = true;
+      } else {
+        // 3. Redis MISS -> Call External Search Provider
+        searchResult = await this.webSearchProvider.search(query, {
+          limit: 10,
+        });
+
+        // Cache successful response asynchronously
+        await this.searchCacheService.set(query, searchResult);
+      }
+    } catch (error: any) {
+      const responseTimeMs = Date.now() - startTime;
+      await this.usageLogsService.createLog({
+        userId,
+        endpoint: '/api/v1/search',
+        requestType: ApiRequestType.WEB_SEARCH,
+        status: ApiUsageStatus.FAILED,
+        responseTimeMs,
       });
-
-      // Cache successful response asynchronously
-      await this.searchCacheService.set(query, searchResult);
+      throw error;
     }
 
     const latencyMs = Date.now() - startTime;
@@ -68,18 +83,19 @@ export class SearchesService {
     // 5. Increment Subscription Usage
     await this.subscriptionsService.incrementUsage(userId, 1);
 
-    // 6. Log API Usage Audit with Cache Indicator
-    await this.prisma.apiUsageLog.create({
-      data: {
-        userId,
-        modelName: `web-search-engine${cacheHit ? ' (cache)' : ''}`,
-        promptTokens: 0,
-        completionTokens: 0,
-        totalTokens: 0,
-        estimatedCost: cacheHit ? 0.0 : 0.001,
-        endpoint: '/api/v1/search',
-        latencyMs,
-      },
+    // 6. Centralized API Usage Audit Logging
+    await this.usageLogsService.createLog({
+      userId,
+      providerId: null, // Web search provider is not represented by AIProvider model
+      endpoint: '/api/v1/search',
+      requestType: ApiRequestType.WEB_SEARCH,
+      modelName: `web-search-engine${cacheHit ? ' (cache)' : ''}`,
+      promptTokens: 0,
+      completionTokens: 0,
+      totalTokens: 0,
+      estimatedCost: cacheHit ? 0.0 : 0.001,
+      responseTimeMs: latencyMs,
+      status: ApiUsageStatus.SUCCESS,
     });
 
     this.logger.log(

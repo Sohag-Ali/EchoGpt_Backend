@@ -71,6 +71,24 @@ export class UsersController {
     return this.usersService.getMeProfile(userId);
   }
 
+  @Get('me/usage-logs')
+  @HttpCode(HttpStatus.OK)
+  @ApiBearerAuth('JWT-auth')
+  @ApiOperation({ summary: 'Get current user API usage audit logs with pagination' })
+  @ApiQuery({ name: 'page', required: false, type: Number, example: 1 })
+  @ApiQuery({ name: 'limit', required: false, type: Number, example: 20 })
+  @ApiResponse({
+    status: 200,
+    description: 'API usage logs fetched successfully.',
+  })
+  async getMeUsageLogs(
+    @CurrentUser('id') userId: string,
+    @Query('page') page?: number,
+    @Query('limit') limit?: number,
+  ) {
+    return this.usersService.getMeUsageLogs(userId, page, limit);
+  }
+
   @Patch('me/profile')
   @HttpCode(HttpStatus.OK)
   @ApiBearerAuth('JWT-auth')
