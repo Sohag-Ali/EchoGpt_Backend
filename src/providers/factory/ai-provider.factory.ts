@@ -140,4 +140,23 @@ export class AIProviderFactory {
 
     return client.generateResponse(prompt, config, options);
   }
+
+  /**
+   * High-level streaming entry point used by ChatService.
+   * Resolves configuration, selects provider client, and yields response chunks seamlessly.
+   */
+  async *streamResponse(
+    prompt: string,
+    requestedType?: ProviderType,
+    options?: AIRequestOptions,
+  ): AsyncGenerator<import('../interfaces/ai-provider.interface').AIStreamChunk> {
+    const config = await this.getProviderConfig(requestedType);
+    const client = this.getProviderClient(config.type);
+
+    this.logger.log(
+      `Dispatching AI streaming request to provider [${config.name}] (${config.type})`,
+    );
+
+    yield* client.streamResponse(prompt, config, options);
+  }
 }

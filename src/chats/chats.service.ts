@@ -1,3 +1,4 @@
+import { Response } from 'express';
 import {
   BadRequestException,
   ForbiddenException,
@@ -148,6 +149,161 @@ export class ChatsService {
         createdAt: chat.createdAt,
       },
     };
+  }
+
+  /**
+   * 1b. POST /api/v1/chats/stream - Create Chat & Stream AI Response (SSE)
+   */
+  async createChatStream(userId: string, dto: CreateChatDto, res: Response) {
+    const userPrompt = (dto.prompt || dto.message || '').trim();
+
+    if (!userPrompt) {
+      throw new BadRequestException('Prompt is required and cannot be empty.');
+    }
+
+    // 1. Enforce Subscription Usage Limit pre-execution gate
+    await this.subscriptionsService.enforceUsageLimit(userId);
+
+    // 2. Set SSE Headers
+    res.setHeader('Content-Type', 'text/event-stream');
+    res.setHeader('Cache-Control', 'no-cache, no-transform');
+    res.setHeader('Connection', 'keep-alive');
+    res.setHeader('X-Accel-Buffering', 'no');
+    res.flushHeaders?.();
+
+    const startTime = Date.now();
+    let fullResponse = '';
+    let lastInputTokens = 0;
+    let lastOutputTokens = 0;
+    let lastTotalTokens = 0;
+    let usedModel = 'gemini-3.8-flash';
+    let providerConfig: any = null;
+
+    try {
+      providerConfig = await this.aiProviderFactory.getProviderConfig(
+        dto.provider,
+      );
+      usedModel = providerConfig.modelName;
+
+      const stream = this.aiProviderFactory.streamResponse(
+        userPrompt,
+        dto.provider,
+        {
+          systemPrompt: dto.systemPrompt,
+        },
+      );
+
+      for await (const chunk of stream) {
+        if (chunk.content) {
+          fullResponse += chunk.content;
+          res.write(
+            `data: ${JSON.stringify({
+              content: chunk.content,
+              provider: chunk.provider,
+              model: chunk.model,
+            })}\n\n`,
+          );
+        }
+        if (chunk.model) usedModel = chunk.model;
+        if (chunk.inputTokens) lastInputTokens = chunk.inputTokens;
+        if (chunk.outputTokens) lastOutputTokens = chunk.outputTokens;
+        if (chunk.totalTokens) lastTotalTokens = chunk.totalTokens;
+      }
+
+      // Send completion done chunk
+      res.write(`data: ${JSON.stringify({ done: true })}\n\n`);
+      res.end();
+    } catch (error: any) {
+      this.logger.error(
+        `Error during streaming AI response for user [${userId}]: ${error.message}`,
+      );
+      if (!res.headersSent) {
+        throw error;
+      } else {
+        res.write(
+          `data: ${JSON.stringify({
+            error: error.message || 'Failed to generate AI response.',
+          })}\n\n`,
+        );
+        res.end();
+        return;
+      }
+    }
+
+    // 3. Post-stream successful completion persistence & usage accounting
+    if (fullResponse && providerConfig) {
+      try {
+        const usageResult = await this.subscriptionsService.incrementUsage(
+          userId,
+          1,
+        );
+
+        const responseTimeMs = Date.now() - startTime;
+        const chatTitle =
+          dto.title ||
+          (userPrompt.length > 30
+            ? userPrompt.substring(0, 30) + '...'
+            : userPrompt);
+
+        await this.prisma.$transaction(
+          async (tx) => {
+            const newChat = await tx.chat.create({
+              data: {
+                userId,
+                title: chatTitle,
+                providerId: providerConfig.id,
+                systemPrompt: dto.systemPrompt || null,
+                messages: {
+                  create: [
+                    {
+                      role: MessageRole.USER,
+                      content: userPrompt,
+                      promptTokens: lastInputTokens,
+                      totalTokens: lastInputTokens,
+                    },
+                    {
+                      role: MessageRole.ASSISTANT,
+                      content: fullResponse,
+                      completionTokens: lastOutputTokens,
+                      totalTokens: lastOutputTokens,
+                      latencyMs: responseTimeMs,
+                    },
+                  ],
+                },
+              },
+            });
+
+            const costPer1k = providerConfig.costPer1kInput || 0.002;
+            const estimatedCost = (lastTotalTokens / 1000) * costPer1k;
+
+            await tx.apiUsageLog.create({
+              data: {
+                userId,
+                providerId: providerConfig.id,
+                modelName: usedModel || providerConfig.modelName || 'default',
+                promptTokens: lastInputTokens,
+                completionTokens: lastOutputTokens,
+                totalTokens: lastTotalTokens,
+                estimatedCost,
+                endpoint: '/api/v1/chats/stream',
+                latencyMs: responseTimeMs,
+              },
+            });
+
+            return newChat;
+          },
+          { timeout: 15000 },
+        );
+
+        this.logger.log(
+          `Stream chat completed for user [${userId}] via [${providerConfig.providerType}] (${usedModel}). Remaining requests: ${usageResult?.remainingRequests}`,
+        );
+      } catch (err: any) {
+        this.logger.error(
+          `Failed to record chat history/usage for stream: ${err.message}`,
+        );
+      }
+    }
   }
 
   /**

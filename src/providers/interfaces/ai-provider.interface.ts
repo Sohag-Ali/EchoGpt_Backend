@@ -36,6 +36,17 @@ export interface AIProviderConfig {
   costPer1kOutput?: number;
 }
 
+export interface AIStreamChunk {
+  content: string;
+  provider: ProviderType;
+  model: string;
+  done?: boolean;
+  inputTokens?: number;
+  outputTokens?: number;
+  totalTokens?: number;
+  finishReason?: string;
+}
+
 export interface AIProviderClient {
   readonly providerType: ProviderType;
 
@@ -44,4 +55,10 @@ export interface AIProviderClient {
     config: AIProviderConfig,
     options?: AIRequestOptions,
   ): Promise<AIResponse>;
+
+  streamResponse(
+    prompt: string,
+    config: AIProviderConfig,
+    options?: AIRequestOptions,
+  ): AsyncGenerator<AIStreamChunk>;
 }

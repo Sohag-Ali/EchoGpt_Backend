@@ -1,3 +1,4 @@
+import { Response } from 'express';
 import {
   Body,
   Controller,
@@ -8,6 +9,7 @@ import {
   Param,
   Post,
   Query,
+  Res,
 } from '@nestjs/common';
 import {
   ApiBadRequestResponse,
@@ -57,6 +59,35 @@ export class ChatsController {
     @Body() dto: CreateChatDto,
   ) {
     return this.chatsService.createChat(userId, dto);
+  }
+
+  @Post('stream')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: 'Send message prompt & stream AI response progressively (SSE)',
+    description:
+      'Progressively streams AI response text chunks to the client using Server-Sent Events (Content-Type: text/event-stream). Enforces subscription limit pre-execution, accumulates complete response, saves ChatHistory once, increments usage once, and creates API usage log upon completion.',
+  })
+  @ApiResponse({
+    status: 200,
+    description:
+      'Server-Sent Events (SSE) stream initiated. Output formatted as text/event-stream.',
+  })
+  @ApiForbiddenResponse({
+    description: 'Forbidden. Monthly subscription limit reached.',
+  })
+  @ApiBadRequestResponse({
+    description: 'Invalid prompt or provider configuration error.',
+  })
+  @ApiUnauthorizedResponse({
+    description: 'Bearer token or HttpOnly cookie missing, expired, or invalid.',
+  })
+  async createChatStream(
+    @CurrentUser('id') userId: string,
+    @Body() dto: CreateChatDto,
+    @Res() res: Response,
+  ) {
+    return this.chatsService.createChatStream(userId, dto, res);
   }
 
   @Get()

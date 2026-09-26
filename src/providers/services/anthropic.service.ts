@@ -127,4 +127,14 @@ export class AnthropicService implements AIProviderClient {
       );
     }
   }
+
+  async *streamResponse(
+    prompt: string,
+    config: AIProviderConfig,
+    options?: AIRequestOptions,
+  ): AsyncGenerator<import('../interfaces/ai-provider.interface').AIStreamChunk> {
+    throw new BadRequestException(
+      'Streaming response is currently only implemented for Google Gemini provider.',
+    );
+  }
 }
