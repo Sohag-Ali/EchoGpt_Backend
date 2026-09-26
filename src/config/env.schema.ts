@@ -52,6 +52,7 @@ export const envValidationSchema = Joi.object({
   OPENAI_API_KEY: Joi.string().allow('').optional(),
   ANTHROPIC_API_KEY: Joi.string().allow('').optional(),
   GOOGLE_GEMINI_API_KEY: Joi.string().allow('').optional(),
+  AI_PROVIDER_ENCRYPTION_KEY: Joi.string().allow('').optional(),
 
   // bKash Payment Gateway Credentials
   BKASH_BASE_URL: Joi.string().allow('').optional(),

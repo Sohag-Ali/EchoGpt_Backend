@@ -151,7 +151,7 @@ export class ChatsService {
         data: {
           userId,
           providerId: provider.id,
-          modelName: provider.modelName,
+          modelName: provider.modelName || 'default',
           promptTokens,
           completionTokens,
           totalTokens,

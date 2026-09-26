@@ -32,6 +32,7 @@ export default () => ({
     openaiApiKey: process.env.OPENAI_API_KEY || '',
     anthropicApiKey: process.env.ANTHROPIC_API_KEY || '',
     googleGeminiApiKey: process.env.GOOGLE_GEMINI_API_KEY || '',
+    encryptionKey: process.env.AI_PROVIDER_ENCRYPTION_KEY || process.env.JWT_ACCESS_SECRET || 'echogpt-default-encryption-secret-32-chars-long!',
   },
   bkash: {
     baseUrl: process.env.BKASH_BASE_URL || 'https://tokenized.sandbox.bka.sh/v1.2.0-beta',

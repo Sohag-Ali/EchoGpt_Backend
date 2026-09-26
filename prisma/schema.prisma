@@ -203,7 +203,8 @@ model AIProvider {
   id              String       @id @default(uuid())
   name            String
   providerType    ProviderType @map("provider_type")
-  modelName       String       @map("model_name")
+  encryptedApiKey String?      @map("encrypted_api_key")
+  modelName       String?      @default("default") @map("model_name")
   baseUrl         String?      @map("base_url")
   isActive        Boolean      @default(true) @map("is_active")
   isDefault       Boolean      @default(false) @map("is_default")
