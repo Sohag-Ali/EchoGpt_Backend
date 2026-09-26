@@ -48,28 +48,6 @@ export class AppController {
     };
   }
 
-  @Get('admin/dashboard')
-  @Roles(RoleType.ADMIN)
-  @HttpCode(HttpStatus.OK)
-  @ApiBearerAuth('JWT-auth')
-  @ApiOperation({ summary: 'Admin Dashboard metrics (Requires ADMIN role)' })
-  @ApiResponse({
-    status: 200,
-    description: 'Admin dashboard metrics retrieved successfully.',
-  })
-  @ApiForbiddenResponse({
-    description: 'Forbidden. Authenticated user lacks ADMIN role.',
-  })
-  getAdminDashboard(@CurrentUser() user: any) {
-    return {
-      success: true,
-      message: 'Admin metrics retrieved successfully.',
-      data: {
-        systemStatus: 'operational',
-        authenticatedUser: user,
-      },
-    };
-  }
 
   @Public()
   @Get('test-errors/unauthorized')
