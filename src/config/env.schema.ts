@@ -62,4 +62,9 @@ export const envValidationSchema = Joi.object({
   BKASH_APP_SECRET: Joi.string().allow('').optional(),
   BKASH_CALLBACK_URL: Joi.string().allow('').optional(),
   BKASH_PREMIUM_PRICE: Joi.number().default(500),
+
+  // Search Provider & Cache Configuration
+  SEARCH_API_KEY: Joi.string().allow('').optional(),
+  SEARCH_API_BASE_URL: Joi.string().allow('').optional(),
+  SEARCH_CACHE_TTL: Joi.number().default(600),
 });

@@ -3,6 +3,7 @@ import { WebSearchStatus } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { SubscriptionsService } from '../subscriptions/subscriptions.service';
 import { WebSearchProviderService } from './providers/web-search-provider.service';
+import { SearchCacheService } from './services/search-cache.service';
 import { SearchDto } from './dto/search.dto';
 import {
   RecentSearchesQueryDto,
@@ -16,11 +17,12 @@ export class SearchesService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly webSearchProvider: WebSearchProviderService,
+    private readonly searchCacheService: SearchCacheService,
     private readonly subscriptionsService: SubscriptionsService,
   ) {}
 
   /**
-   * 1. POST /api/v1/search - Execute Web Search
+   * 1. POST /api/v1/search - Execute Web Search with Redis Caching
    */
   async executeSearch(userId: string, dto: SearchDto) {
     const query = (dto.query || '').trim();
@@ -33,14 +35,26 @@ export class SearchesService {
     await this.subscriptionsService.enforceUsageLimit(userId);
 
     const startTime = Date.now();
+    let cacheHit = false;
 
-    // 2. Call Web Search Provider
-    const searchResult = await this.webSearchProvider.search(query, {
-      limit: 10,
-    });
+    // 2. Check Redis Cache First
+    let searchResult = await this.searchCacheService.get(query);
+
+    if (searchResult) {
+      cacheHit = true;
+    } else {
+      // 3. Redis MISS -> Call External Search Provider
+      searchResult = await this.webSearchProvider.search(query, {
+        limit: 10,
+      });
+
+      // Cache successful response asynchronously
+      await this.searchCacheService.set(query, searchResult);
+    }
+
     const latencyMs = Date.now() - startTime;
 
-    // 3. Save Search History
+    // 4. Save Search History for Authenticated User
     const record = await this.prisma.webSearch.create({
       data: {
         userId,
@@ -51,25 +65,25 @@ export class SearchesService {
       },
     });
 
-    // 4. Increment Subscription Usage
+    // 5. Increment Subscription Usage
     await this.subscriptionsService.incrementUsage(userId, 1);
 
-    // 5. Log API Usage Audit
+    // 6. Log API Usage Audit with Cache Indicator
     await this.prisma.apiUsageLog.create({
       data: {
         userId,
-        modelName: 'web-search-engine',
+        modelName: `web-search-engine${cacheHit ? ' (cache)' : ''}`,
         promptTokens: 0,
         completionTokens: 0,
         totalTokens: 0,
-        estimatedCost: 0.001,
+        estimatedCost: cacheHit ? 0.0 : 0.001,
         endpoint: '/api/v1/search',
         latencyMs,
       },
     });
 
     this.logger.log(
-      `Web Search completed for user [${userId}] query: "${query}" in ${latencyMs}ms. Results: ${searchResult.results.length}`,
+      `Web Search completed [${cacheHit ? 'CACHE HIT' : 'CACHE MISS'}] for user [${userId}] query: "${query}" in ${latencyMs}ms. Results: ${searchResult.results.length}`,
     );
 
     return {
@@ -79,6 +93,7 @@ export class SearchesService {
         id: record.id,
         query: record.query,
         results: searchResult.results,
+        cacheHit,
         createdAt: record.createdAt,
       },
     };
