@@ -1,7 +1,7 @@
 # 🚀 EchoGPT Backend — Project Architecture & Technical Documentation
 
 > **Target Audience:** Technical Recruiters, Engineering Leads, & Hiring Managers  
-> **Author:** Sohag Ali (Backend Developer / Software Engineer)  
+> **Author:** Sohag Ali (Aspiring Backend Developer / Software Engineer)  
 > **Live API Base URL:** `https://echogptbackend-production.up.railway.app/api/v1`  
 > **Swagger Documentation:** `https://echogptbackend-production.up.railway.app/api/docs`  
 > **Postman Interactive Docs:** [documenter.getpostman.com/view/54817904/2sBYB4K6is](https://documenter.getpostman.com/view/54817904/2sBYB4K6is)  
@@ -349,7 +349,7 @@ The platform includes a administrative suite accessible exclusively to users wit
 <div align="center">
 
 **Developed with ❤️ by Sohag Ali**  
-*Senior Software Engineer / Backend Specialist*  
-[Portfolio](https://portfolio-sohag-ali.vercel.app/) • [LinkedIn](https://www.linkedin.com/in/sohag-ali-bd) • [GitHub](https://github.com/Sohag-Ali)
+*Aspiring Software Engineer / Backend Specialist*  
+[Portfolio](https://sohagali.me) • [LinkedIn](https://www.linkedin.com/in/sohag-ali-bd) • [GitHub](https://github.com/Sohag-Ali)
 
 </div>
