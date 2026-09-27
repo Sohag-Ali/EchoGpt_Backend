@@ -27,6 +27,7 @@ import { RegisterDto } from './dto/register.dto';
 import { VerifyRegistrationDto } from './dto/verify-registration.dto';
 import { ResendRegistrationOtpDto } from './dto/resend-registration-otp.dto';
 import { LoginDto } from './dto/login.dto';
+import { GoogleLoginDto } from './dto/google-login.dto';
 import { RefreshTokenDto } from './dto/refresh-token.dto';
 import { VerifyEmailQueryDto } from './dto/verify-email.dto';
 import { ResendVerificationDto } from './dto/resend-verification.dto';
@@ -41,10 +42,13 @@ export class AuthController {
   @Public()
   @Post('register')
   @HttpCode(HttpStatus.OK)
-  @ApiOperation({ summary: 'Initiate user registration and send 6-digit OTP to email' })
+  @ApiOperation({
+    summary: 'Initiate user registration and send 6-digit OTP to email',
+  })
   @ApiResponse({
     status: 200,
-    description: 'Verification OTP sent to email. User is NOT created in PostgreSQL until OTP is verified.',
+    description:
+      'Verification OTP sent to email. User is NOT created in PostgreSQL until OTP is verified.',
   })
   @ApiConflictResponse({
     description: 'Email is already registered.',
@@ -56,13 +60,17 @@ export class AuthController {
   @Public()
   @Post('verify-registration')
   @HttpCode(HttpStatus.CREATED)
-  @ApiOperation({ summary: 'Verify 6-digit OTP and complete account creation in PostgreSQL' })
+  @ApiOperation({
+    summary: 'Verify 6-digit OTP and complete account creation in PostgreSQL',
+  })
   @ApiResponse({
     status: 201,
-    description: 'OTP verified successfully. User account and FREE subscription created in PostgreSQL.',
+    description:
+      'OTP verified successfully. User account and FREE subscription created in PostgreSQL.',
   })
   @ApiBadRequestResponse({
-    description: 'Invalid, expired OTP or maximum verification attempts exceeded.',
+    description:
+      'Invalid, expired OTP or maximum verification attempts exceeded.',
   })
   @ApiConflictResponse({
     description: 'Email is already registered.',
@@ -74,7 +82,9 @@ export class AuthController {
   @Public()
   @Post('resend-registration-otp')
   @HttpCode(HttpStatus.OK)
-  @ApiOperation({ summary: 'Resend registration OTP to email with 60s cooldown' })
+  @ApiOperation({
+    summary: 'Resend registration OTP to email with 60s cooldown',
+  })
   @ApiResponse({
     status: 200,
     description: 'New verification OTP sent to email.',
@@ -93,10 +103,13 @@ export class AuthController {
   @Public()
   @Post('login')
   @HttpCode(HttpStatus.OK)
-  @ApiOperation({ summary: 'Authenticate user and set JWT tokens in HttpOnly cookies' })
+  @ApiOperation({
+    summary: 'Authenticate user and set JWT tokens in HttpOnly cookies',
+  })
   @ApiResponse({
     status: 200,
-    description: 'User authenticated successfully. Tokens set in HttpOnly cookies (accessToken, refreshToken). Returns User profile in JSON response.',
+    description:
+      'User authenticated successfully. Tokens set in HttpOnly cookies (accessToken, refreshToken). Returns User profile in JSON response.',
   })
   @ApiUnauthorizedResponse({
     description: 'Invalid email address or password.',
@@ -138,12 +151,68 @@ export class AuthController {
   }
 
   @Public()
+  @Post('google')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Authenticate user using Google Sign-In ID Token' })
+  @ApiResponse({
+    status: 200,
+    description:
+      'Google authentication successful. Tokens set in HttpOnly cookies (accessToken, refreshToken). Returns User profile in JSON response.',
+  })
+  @ApiBadRequestResponse({
+    description: 'Invalid request body or missing Google ID token.',
+  })
+  @ApiUnauthorizedResponse({
+    description:
+      'Invalid Google ID token, unverified Google email, or deactivated user account.',
+  })
+  async googleLogin(
+    @Body() dto: GoogleLoginDto,
+    @Headers('user-agent') userAgent: string,
+    @Ip() ipAddress: string,
+    @Res({ passthrough: true }) res: Response,
+  ) {
+    const result = await this.authService.googleLogin(dto, {
+      userAgent,
+      ipAddress,
+    });
+
+    const { accessToken, refreshToken, user } = result.data;
+    const isProduction = process.env.NODE_ENV === 'production';
+
+    // Access Token Cookie (24 hours = 86,400,000 ms)
+    res.cookie('accessToken', accessToken, {
+      httpOnly: true,
+      secure: isProduction,
+      sameSite: 'lax',
+      maxAge: 24 * 60 * 60 * 1000,
+    });
+
+    // Refresh Token Cookie (7 days = 604,800,000 ms)
+    res.cookie('refreshToken', refreshToken, {
+      httpOnly: true,
+      secure: isProduction,
+      sameSite: 'lax',
+      maxAge: 7 * 24 * 60 * 60 * 1000,
+    });
+
+    return {
+      success: result.success,
+      message: result.message,
+      data: {
+        user,
+      },
+    };
+  }
+
+  @Public()
   @Post('refresh-token')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Rotate Refresh Token and issue new Access Token' })
   @ApiResponse({
     status: 200,
-    description: 'Refresh token validated successfully. Returns new Access Token and new Refresh Token.',
+    description:
+      'Refresh token validated successfully. Returns new Access Token and new Refresh Token.',
   })
   @ApiUnauthorizedResponse({
     description: 'Refresh token is expired, invalid, or has been revoked.',
@@ -186,10 +255,13 @@ export class AuthController {
   @Public()
   @Post('forgot-password')
   @HttpCode(HttpStatus.OK)
-  @ApiOperation({ summary: 'Request password reset 6-digit OTP code sent to registered email' })
+  @ApiOperation({
+    summary: 'Request password reset 6-digit OTP code sent to registered email',
+  })
   @ApiResponse({
     status: 200,
-    description: 'If the email is registered, a password reset OTP has been sent to email.',
+    description:
+      'If the email is registered, a password reset OTP has been sent to email.',
   })
   async forgotPassword(@Body() dto: ForgotPasswordDto) {
     return this.authService.forgotPassword(dto);
@@ -198,13 +270,17 @@ export class AuthController {
   @Public()
   @Post('reset-password')
   @HttpCode(HttpStatus.OK)
-  @ApiOperation({ summary: 'Reset account password directly using email, OTP, and new password' })
+  @ApiOperation({
+    summary:
+      'Reset account password directly using email, OTP, and new password',
+  })
   @ApiResponse({
     status: 200,
     description: 'Password reset successfully. Active sessions revoked.',
   })
   @ApiBadRequestResponse({
-    description: 'Invalid or expired OTP, or maximum verification attempts exceeded.',
+    description:
+      'Invalid or expired OTP, or maximum verification attempts exceeded.',
   })
   async resetPassword(@Body() dto: ResetPasswordDto) {
     return this.authService.resetPassword(dto);

@@ -44,7 +44,9 @@ export class AdminLogQueryDto {
   @IsString()
   endpoint?: string;
 
-  @ApiPropertyOptional({ description: 'Start date ISO string (e.g. 2026-09-01)' })
+  @ApiPropertyOptional({
+    description: 'Start date ISO string (e.g. 2026-09-01)',
+  })
   @IsOptional()
   @IsString()
   from?: string;

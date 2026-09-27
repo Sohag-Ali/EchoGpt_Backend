@@ -13,6 +13,7 @@ import { JwtService } from '@nestjs/jwt';
 import { RoleType, SubscriptionPlan, SubscriptionStatus } from '@prisma/client';
 import * as bcrypt from 'bcrypt';
 import * as crypto from 'crypto';
+import { OAuth2Client } from 'google-auth-library';
 import { PrismaService } from '../prisma/prisma.service';
 import { RedisService } from '../redis/redis.service';
 import { EmailService } from '../mail/mail.service';
@@ -20,6 +21,7 @@ import { RegisterDto } from './dto/register.dto';
 import { VerifyRegistrationDto } from './dto/verify-registration.dto';
 import { ResendRegistrationOtpDto } from './dto/resend-registration-otp.dto';
 import { LoginDto } from './dto/login.dto';
+import { GoogleLoginDto } from './dto/google-login.dto';
 import { RefreshTokenDto } from './dto/refresh-token.dto';
 import { ForgotPasswordDto } from './dto/forgot-password.dto';
 import { ResetPasswordDto } from './dto/reset-password.dto';
@@ -60,7 +62,10 @@ export class AuthService {
     }
 
     // 2. Hash password securely (never store plain password in Redis)
-    const saltRounds = this.configService.get<number>('jwt.bcryptSaltRounds', 10);
+    const saltRounds = this.configService.get<number>(
+      'jwt.bcryptSaltRounds',
+      10,
+    );
     const passwordHash = await bcrypt.hash(dto.password, saltRounds);
 
     // 3. Generate a cryptographically secure 6-digit OTP
@@ -93,7 +98,11 @@ export class AuthService {
     // 6. Send OTP email using MailService
     this.emailService
       .sendRegistrationOtpEmail(email, otpStr, dto.name.trim())
-      .catch((err) => this.logger.error(`Error sending registration OTP email: ${err.message}`));
+      .catch((err) =>
+        this.logger.error(
+          `Error sending registration OTP email: ${err.message}`,
+        ),
+      );
 
     this.logger.log(`Generated registration OTP for pending email: ${email}`);
 
@@ -122,9 +131,13 @@ export class AuthService {
     }
 
     // 2. Fetch pending registration data from Redis
-    const pendingDataStr = await this.redisService.get(`pending-registration:${email}`);
+    const pendingDataStr = await this.redisService.get(
+      `pending-registration:${email}`,
+    );
     if (!pendingDataStr) {
-      throw new BadRequestException('Pending registration expired or not found. Please register again.');
+      throw new BadRequestException(
+        'Pending registration expired or not found. Please register again.',
+      );
     }
     const pendingData = JSON.parse(pendingDataStr);
 
@@ -138,16 +151,27 @@ export class AuthService {
     // 4. Check for brute-force attempts limit (Max 5 attempts)
     if (otpData.attempts >= 5) {
       await this.redisService.del(`registration-otp:${email}`);
-      throw new BadRequestException('Maximum verification attempts exceeded. Please request a new OTP.');
+      throw new BadRequestException(
+        'Maximum verification attempts exceeded. Please request a new OTP.',
+      );
     }
 
     // 5. Hash incoming OTP and compare
-    const inputOtpHash = crypto.createHash('sha256').update(dto.otp.trim()).digest('hex');
+    const inputOtpHash = crypto
+      .createHash('sha256')
+      .update(dto.otp.trim())
+      .digest('hex');
     if (inputOtpHash !== otpData.otpHash) {
       otpData.attempts += 1;
-      const remainingTtl = await this.redisService.ttl(`registration-otp:${email}`);
+      const remainingTtl = await this.redisService.ttl(
+        `registration-otp:${email}`,
+      );
       const ttlToUse = remainingTtl > 0 ? remainingTtl : 300;
-      await this.redisService.set(`registration-otp:${email}`, JSON.stringify(otpData), ttlToUse);
+      await this.redisService.set(
+        `registration-otp:${email}`,
+        JSON.stringify(otpData),
+        ttlToUse,
+      );
       throw new BadRequestException('Invalid or expired OTP');
     }
 
@@ -220,9 +244,13 @@ export class AuthService {
       // 10. Send Welcome Email
       this.emailService
         .sendWelcomeEmail(createdUser.email, createdUser.name || 'User')
-        .catch((err) => this.logger.error(`Error sending welcome email: ${err.message}`));
+        .catch((err) =>
+          this.logger.error(`Error sending welcome email: ${err.message}`),
+        );
 
-      this.logger.log(`User created in PostgreSQL after OTP verification: ${createdUser.email} [${createdUser.id}]`);
+      this.logger.log(
+        `User created in PostgreSQL after OTP verification: ${createdUser.email} [${createdUser.id}]`,
+      );
 
       return {
         success: true,
@@ -233,8 +261,12 @@ export class AuthService {
       if (error.code === 'P2002') {
         throw new ConflictException('Email is already registered.');
       }
-      this.logger.error(`Registration completion error for ${email}: ${error.message}`);
-      throw new InternalServerErrorException('Could not complete account creation.');
+      this.logger.error(
+        `Registration completion error for ${email}: ${error.message}`,
+      );
+      throw new InternalServerErrorException(
+        'Could not complete account creation.',
+      );
     }
   }
 
@@ -255,15 +287,24 @@ export class AuthService {
     }
 
     // 2. Check rate-limit cooldown (60 seconds)
-    const isCooldownActive = await this.redisService.get(`resend-otp-cooldown:${email}`);
+    const isCooldownActive = await this.redisService.get(
+      `resend-otp-cooldown:${email}`,
+    );
     if (isCooldownActive) {
-      throw new HttpException('Please wait 60 seconds before requesting another OTP', HttpStatus.TOO_MANY_REQUESTS);
+      throw new HttpException(
+        'Please wait 60 seconds before requesting another OTP',
+        HttpStatus.TOO_MANY_REQUESTS,
+      );
     }
 
     // 3. Check if pending registration exists in Redis
-    const pendingDataStr = await this.redisService.get(`pending-registration:${email}`);
+    const pendingDataStr = await this.redisService.get(
+      `pending-registration:${email}`,
+    );
     if (!pendingDataStr) {
-      throw new BadRequestException('No pending registration found for this email. Please register again.');
+      throw new BadRequestException(
+        'No pending registration found for this email. Please register again.',
+      );
     }
     const pendingData = JSON.parse(pendingDataStr);
 
@@ -283,7 +324,11 @@ export class AuthService {
     );
 
     // 6. Reset pending registration TTL to 10 mins (600s)
-    await this.redisService.set(`pending-registration:${email}`, pendingDataStr, 600);
+    await this.redisService.set(
+      `pending-registration:${email}`,
+      pendingDataStr,
+      600,
+    );
 
     // 7. Set 60-second resend cooldown
     await this.redisService.set(`resend-otp-cooldown:${email}`, 'true', 60);
@@ -291,7 +336,11 @@ export class AuthService {
     // 8. Dispatch new OTP email
     this.emailService
       .sendRegistrationOtpEmail(email, otpStr, pendingData.name)
-      .catch((err) => this.logger.error(`Error resending registration OTP email: ${err.message}`));
+      .catch((err) =>
+        this.logger.error(
+          `Error resending registration OTP email: ${err.message}`,
+        ),
+      );
 
     return {
       success: true,
@@ -308,7 +357,10 @@ export class AuthService {
     }
 
     // 1. Hash incoming token
-    const tokenHash = crypto.createHash('sha256').update(rawToken).digest('hex');
+    const tokenHash = crypto
+      .createHash('sha256')
+      .update(rawToken)
+      .digest('hex');
 
     // 2. Query token record
     const tokenRecord = await this.prisma.emailVerificationToken.findUnique({
@@ -317,12 +369,18 @@ export class AuthService {
     });
 
     if (!tokenRecord) {
-      throw new BadRequestException('Invalid or already used verification token.');
+      throw new BadRequestException(
+        'Invalid or already used verification token.',
+      );
     }
 
     if (tokenRecord.expiresAt < new Date()) {
-      await this.prisma.emailVerificationToken.delete({ where: { id: tokenRecord.id } });
-      throw new BadRequestException('Verification token has expired. Please request a new verification email.');
+      await this.prisma.emailVerificationToken.delete({
+        where: { id: tokenRecord.id },
+      });
+      throw new BadRequestException(
+        'Verification token has expired. Please request a new verification email.',
+      );
     }
 
     // 3. Mark user email as verified
@@ -339,13 +397,18 @@ export class AuthService {
     // 5. Send Welcome Email
     this.emailService
       .sendWelcomeEmail(tokenRecord.user.email, tokenRecord.user.name || 'User')
-      .catch((err) => this.logger.error(`Error sending welcome email: ${err.message}`));
+      .catch((err) =>
+        this.logger.error(`Error sending welcome email: ${err.message}`),
+      );
 
-    this.logger.log(`Verified email address for user: ${tokenRecord.user.email} [${tokenRecord.userId}]`);
+    this.logger.log(
+      `Verified email address for user: ${tokenRecord.user.email} [${tokenRecord.userId}]`,
+    );
 
     return {
       success: true,
-      message: 'Email address verified successfully. You can now use all platform features.',
+      message:
+        'Email address verified successfully. You can now use all platform features.',
     };
   }
 
@@ -362,7 +425,8 @@ export class AuthService {
     if (!user) {
       return {
         success: true,
-        message: 'If an unverified account exists for this email, a verification link has been sent.',
+        message:
+          'If an unverified account exists for this email, a verification link has been sent.',
       };
     }
 
@@ -378,7 +442,10 @@ export class AuthService {
     });
 
     const rawVerificationToken = crypto.randomBytes(32).toString('hex');
-    const tokenHash = crypto.createHash('sha256').update(rawVerificationToken).digest('hex');
+    const tokenHash = crypto
+      .createHash('sha256')
+      .update(rawVerificationToken)
+      .digest('hex');
 
     const expiresAt = new Date();
     expiresAt.setHours(expiresAt.getHours() + 24);
@@ -391,7 +458,11 @@ export class AuthService {
       },
     });
 
-    await this.emailService.sendVerificationEmail(user.email, rawVerificationToken, user.name || 'User');
+    await this.emailService.sendVerificationEmail(
+      user.email,
+      rawVerificationToken,
+      user.name || 'User',
+    );
 
     this.logger.log(`Resent verification email to: ${user.email} [${user.id}]`);
 
@@ -425,14 +496,21 @@ export class AuthService {
 
       this.emailService
         .sendPasswordResetEmail(user.email, otp, user.name || 'User')
-        .catch((err) => this.logger.error(`Error sending password reset OTP email: ${err.message}`));
+        .catch((err) =>
+          this.logger.error(
+            `Error sending password reset OTP email: ${err.message}`,
+          ),
+        );
 
-      this.logger.log(`Generated and dispatched password reset OTP for account: ${email}`);
+      this.logger.log(
+        `Generated and dispatched password reset OTP for account: ${email}`,
+      );
     }
 
     return {
       success: true,
-      message: 'If the email is registered, a password reset OTP has been sent.',
+      message:
+        'If the email is registered, a password reset OTP has been sent.',
     };
   }
 
@@ -461,7 +539,9 @@ export class AuthService {
 
     if (attempts >= 5) {
       await this.redisService.del(`password-reset-otp:${email}`);
-      throw new BadRequestException('Too many failed OTP attempts. Please request a new password reset OTP.');
+      throw new BadRequestException(
+        'Too many failed OTP attempts. Please request a new password reset OTP.',
+      );
     }
 
     // 3. Fetch stored OTP from Redis
@@ -480,7 +560,10 @@ export class AuthService {
     }
 
     // 5. Hash new password securely with bcrypt
-    const saltRounds = this.configService.get<number>('jwt.bcryptSaltRounds', 10);
+    const saltRounds = this.configService.get<number>(
+      'jwt.bcryptSaltRounds',
+      10,
+    );
     const hashedPassword = await bcrypt.hash(dto.newPassword, saltRounds);
 
     // 6. Update user's password in PostgreSQL
@@ -502,13 +585,209 @@ export class AuthService {
     // 9. Dispatch password reset success confirmation email
     this.emailService
       .sendPasswordResetSuccessEmail(user.email, user.name || 'User')
-      .catch((err) => this.logger.error(`Error sending password reset success email: ${err.message}`));
+      .catch((err) =>
+        this.logger.error(
+          `Error sending password reset success email: ${err.message}`,
+        ),
+      );
 
-    this.logger.log(`Password reset successfully for user: ${email} [${user.id}]`);
+    this.logger.log(
+      `Password reset successfully for user: ${email} [${user.id}]`,
+    );
 
     return {
       success: true,
       message: 'Password reset successfully.',
+    };
+  }
+
+  /**
+   * Authenticate user via Google OAuth ID token.
+   * Verifies Google ID Token via Google's official OAuth2Client, extracts sub/email/name/picture/email_verified,
+   * enforces verified email, creates user with FREE subscription if new, or reuses existing user account.
+   */
+  async googleLogin(dto: GoogleLoginDto, metadata: ClientMetadata) {
+    const googleClientId =
+      this.configService.get<string>('google.clientId') ||
+      this.configService.get<string>('GOOGLE_CLIENT_ID');
+
+    if (!googleClientId) {
+      this.logger.error(
+        'GOOGLE_CLIENT_ID is not configured in environment variables.',
+      );
+      throw new InternalServerErrorException(
+        'Google authentication configuration error.',
+      );
+    }
+
+    const client = new OAuth2Client(googleClientId);
+
+    let payload: any;
+    try {
+      const ticket = await client.verifyIdToken({
+        idToken: dto.idToken,
+        audience: googleClientId,
+      });
+      payload = ticket.getPayload();
+    } catch (error: any) {
+      this.logger.error(`Google token verification failed: ${error.message}`);
+      throw new UnauthorizedException('Invalid or expired Google token.');
+    }
+
+    if (!payload) {
+      throw new UnauthorizedException('Invalid or expired Google token.');
+    }
+
+    const { sub, email: rawEmail, name, picture, email_verified } = payload;
+
+    if (!rawEmail) {
+      throw new UnauthorizedException('Missing email in Google account token.');
+    }
+
+    if (!email_verified) {
+      throw new UnauthorizedException('Unverified Google email address.');
+    }
+
+    const email = rawEmail.trim().toLowerCase();
+
+    // 1. Check if user exists in PostgreSQL database
+    let user = await this.prisma.user.findUnique({
+      where: { email },
+      include: {
+        role: true,
+        subscription: true,
+      },
+    });
+
+    if (user) {
+      if (!user.isActive) {
+        throw new UnauthorizedException(
+          'Your account has been deactivated. Please contact support.',
+        );
+      }
+      this.logger.log(
+        `Google authentication reused existing user account: ${user.email} [${user.id}]`,
+      );
+    } else {
+      // 2. Fetch or initialize default USER role
+      let defaultRole = await this.prisma.role.findUnique({
+        where: { name: RoleType.USER },
+      });
+
+      if (!defaultRole) {
+        defaultRole = await this.prisma.role.create({
+          data: {
+            name: RoleType.USER,
+            description: 'Standard EchoGPT Extension User',
+          },
+        });
+      }
+
+      // 3. Calculate 1-month usage period for subscription
+      const currentPeriodStart = new Date();
+      const currentPeriodEnd = new Date();
+      currentPeriodEnd.setMonth(currentPeriodEnd.getMonth() + 1);
+
+      // 4. Create new User with FREE subscription in PostgreSQL
+      user = await this.prisma.user.create({
+        data: {
+          email,
+          name: name || email.split('@')[0],
+          avatarUrl: picture || null,
+          password: null,
+          isEmailVerified: true,
+          isActive: true,
+          roleId: defaultRole.id,
+          subscription: {
+            create: {
+              plan: SubscriptionPlan.FREE,
+              status: SubscriptionStatus.ACTIVE,
+              monthlyLimit: 50,
+              usedRequests: 0,
+              currentPeriodStart,
+              currentPeriodEnd,
+            },
+          },
+        },
+        include: {
+          role: true,
+          subscription: true,
+        },
+      });
+
+      this.logger.log(
+        `New user created via Google OAuth: ${user.email} [${user.id}]`,
+      );
+
+      // Send Welcome Email for newly created Google OAuth user
+      this.emailService
+        .sendWelcomeEmail(user.email, user.name || 'User')
+        .catch((err) =>
+          this.logger.error(
+            `Error sending welcome email for Google OAuth user: ${err.message}`,
+          ),
+        );
+    }
+
+    // 5. Generate application JWT access and refresh tokens
+    const tokens = await this.generateTokens(
+      user.id,
+      user.email,
+      user.role.name,
+    );
+
+    // 6. Hash refresh token and persist active Session in PostgreSQL
+    const saltRounds = this.configService.get<number>(
+      'jwt.bcryptSaltRounds',
+      10,
+    );
+    const refreshTokenHash = await bcrypt.hash(tokens.refreshToken, saltRounds);
+
+    const refreshExpiryDays = 7;
+    const sessionExpiresAt = new Date();
+    sessionExpiresAt.setDate(sessionExpiresAt.getDate() + refreshExpiryDays);
+
+    await this.prisma.session.create({
+      data: {
+        userId: user.id,
+        refreshTokenHash,
+        userAgent: metadata.userAgent || 'Unknown Device',
+        ipAddress: metadata.ipAddress || '0.0.0.0',
+        expiresAt: sessionExpiresAt,
+        isRevoked: false,
+      },
+    });
+
+    const subscriptionData = user.subscription
+      ? {
+          ...user.subscription,
+          remainingRequests: Math.max(
+            0,
+            user.subscription.monthlyLimit - user.subscription.usedRequests,
+          ),
+        }
+      : null;
+
+    return {
+      success: true,
+      message: 'Google login successful.',
+      data: {
+        accessToken: tokens.accessToken,
+        refreshToken: tokens.refreshToken,
+        user: {
+          id: user.id,
+          email: user.email,
+          name: user.name,
+          avatarUrl: user.avatarUrl,
+          isEmailVerified: user.isEmailVerified,
+          isActive: user.isActive,
+          role: {
+            id: user.role.id,
+            name: user.role.name,
+          },
+          subscription: subscriptionData,
+        },
+      },
     };
   }
 
@@ -531,7 +810,9 @@ export class AuthService {
     }
 
     if (!user.isActive) {
-      throw new UnauthorizedException('Your account has been deactivated. Please contact support.');
+      throw new UnauthorizedException(
+        'Your account has been deactivated. Please contact support.',
+      );
     }
 
     const isPasswordValid = await bcrypt.compare(dto.password, user.password);
@@ -539,9 +820,16 @@ export class AuthService {
       throw new UnauthorizedException('Invalid email address or password.');
     }
 
-    const tokens = await this.generateTokens(user.id, user.email, user.role.name);
+    const tokens = await this.generateTokens(
+      user.id,
+      user.email,
+      user.role.name,
+    );
 
-    const saltRounds = this.configService.get<number>('jwt.bcryptSaltRounds', 10);
+    const saltRounds = this.configService.get<number>(
+      'jwt.bcryptSaltRounds',
+      10,
+    );
     const refreshTokenHash = await bcrypt.hash(tokens.refreshToken, saltRounds);
 
     const refreshExpiryDays = 7;
@@ -564,7 +852,10 @@ export class AuthService {
     const subscriptionData = user.subscription
       ? {
           ...user.subscription,
-          remainingRequests: Math.max(0, user.subscription.monthlyLimit - user.subscription.usedRequests),
+          remainingRequests: Math.max(
+            0,
+            user.subscription.monthlyLimit - user.subscription.usedRequests,
+          ),
         }
       : null;
 
@@ -602,7 +893,9 @@ export class AuthService {
         secret: refreshSecret,
       });
     } catch {
-      throw new UnauthorizedException('Refresh token is invalid or has expired. Please log in again.');
+      throw new UnauthorizedException(
+        'Refresh token is invalid or has expired. Please log in again.',
+      );
     }
 
     if (!payload || !payload.sub || payload.tokenType !== 'refresh') {
@@ -630,7 +923,10 @@ export class AuthService {
 
     let matchingSession: any = null;
     for (const session of activeSessions) {
-      const isMatch = await bcrypt.compare(dto.refreshToken, session.refreshTokenHash);
+      const isMatch = await bcrypt.compare(
+        dto.refreshToken,
+        session.refreshTokenHash,
+      );
       if (isMatch) {
         matchingSession = session;
         break;
@@ -638,23 +934,37 @@ export class AuthService {
     }
 
     if (!matchingSession) {
-      this.logger.warn(`Security Warning: Refresh token reuse attempt detected for user [${userId}]. Revoking all active sessions.`);
+      this.logger.warn(
+        `Security Warning: Refresh token reuse attempt detected for user [${userId}]. Revoking all active sessions.`,
+      );
       await this.prisma.session.updateMany({
         where: { userId },
         data: { isRevoked: true },
       });
-      throw new UnauthorizedException('Refresh token has been revoked or reused.');
+      throw new UnauthorizedException(
+        'Refresh token has been revoked or reused.',
+      );
     }
 
-    const tokens = await this.generateTokens(user.id, user.email, user.role.name);
+    const tokens = await this.generateTokens(
+      user.id,
+      user.email,
+      user.role.name,
+    );
 
     await this.prisma.session.update({
       where: { id: matchingSession.id },
       data: { isRevoked: true },
     });
 
-    const saltRounds = this.configService.get<number>('jwt.bcryptSaltRounds', 10);
-    const newRefreshTokenHash = await bcrypt.hash(tokens.refreshToken, saltRounds);
+    const saltRounds = this.configService.get<number>(
+      'jwt.bcryptSaltRounds',
+      10,
+    );
+    const newRefreshTokenHash = await bcrypt.hash(
+      tokens.refreshToken,
+      saltRounds,
+    );
 
     const refreshExpiryDays = 7;
     const sessionExpiresAt = new Date();
@@ -671,7 +981,9 @@ export class AuthService {
       },
     });
 
-    this.logger.log(`Rotated refresh token successfully for user: ${user.email} [${user.id}]`);
+    this.logger.log(
+      `Rotated refresh token successfully for user: ${user.email} [${user.id}]`,
+    );
 
     return {
       success: true,
@@ -693,7 +1005,10 @@ export class AuthService {
       });
 
       for (const session of activeSessions) {
-        const isMatch = await bcrypt.compare(dto.refreshToken, session.refreshTokenHash);
+        const isMatch = await bcrypt.compare(
+          dto.refreshToken,
+          session.refreshTokenHash,
+        );
         if (isMatch) {
           await this.prisma.session.update({
             where: { id: session.id },
@@ -709,7 +1024,9 @@ export class AuthService {
       });
     }
 
-    this.logger.log(`Logged out user and revoked active session(s): [${userId}]`);
+    this.logger.log(
+      `Logged out user and revoked active session(s): [${userId}]`,
+    );
 
     return {
       success: true,
@@ -766,11 +1083,21 @@ export class AuthService {
   /**
    * Helper method to generate access and refresh JWT tokens.
    */
-  private async generateTokens(userId: string, email: string, roleName: string) {
+  private async generateTokens(
+    userId: string,
+    email: string,
+    roleName: string,
+  ) {
     const accessSecret = this.configService.get<string>('jwt.accessSecret');
-    const accessExpiresIn = this.configService.get<string>('jwt.accessExpiresIn', '15m');
+    const accessExpiresIn = this.configService.get<string>(
+      'jwt.accessExpiresIn',
+      '15m',
+    );
     const refreshSecret = this.configService.get<string>('jwt.refreshSecret');
-    const refreshExpiresIn = this.configService.get<string>('jwt.refreshExpiresIn', '7d');
+    const refreshExpiresIn = this.configService.get<string>(
+      'jwt.refreshExpiresIn',
+      '7d',
+    );
 
     const [accessToken, refreshToken] = await Promise.all([
       this.jwtService.signAsync(

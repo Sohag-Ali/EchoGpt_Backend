@@ -46,7 +46,8 @@ export class PaymentsController {
     description: 'User is not authorized to confirm this payment.',
   })
   @ApiUnauthorizedResponse({
-    description: 'Bearer token or HttpOnly cookie missing, expired, or invalid.',
+    description:
+      'Bearer token or HttpOnly cookie missing, expired, or invalid.',
   })
   async executePayment(
     @CurrentUser('id') userId: string,
@@ -58,7 +59,9 @@ export class PaymentsController {
   @Get('bkash/callback')
   @Public()
   @HttpCode(HttpStatus.OK)
-  @ApiOperation({ summary: 'bKash Checkout redirect callback handler (Public)' })
+  @ApiOperation({
+    summary: 'bKash Checkout redirect callback handler (Public)',
+  })
   @ApiResponse({
     status: 200,
     description: 'bKash callback processed.',

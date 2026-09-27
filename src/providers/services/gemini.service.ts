@@ -68,9 +68,13 @@ export class GeminiService implements AIProviderClient {
       );
     }
 
-    const contents: Array<{ role: string; parts: Array<{ text: string }> }> = [];
+    const contents: Array<{ role: string; parts: Array<{ text: string }> }> =
+      [];
 
-    if (options?.conversationHistory && options.conversationHistory.length > 0) {
+    if (
+      options?.conversationHistory &&
+      options.conversationHistory.length > 0
+    ) {
       for (const msg of options.conversationHistory) {
         contents.push({
           role: msg.role === 'assistant' ? 'model' : 'user',
@@ -200,7 +204,9 @@ export class GeminiService implements AIProviderClient {
     prompt: string,
     config: AIProviderConfig,
     options?: AIRequestOptions,
-  ): AsyncGenerator<import('../interfaces/ai-provider.interface').AIStreamChunk> {
+  ): AsyncGenerator<
+    import('../interfaces/ai-provider.interface').AIStreamChunk
+  > {
     let baseUrl = (
       config.baseUrl || 'https://generativelanguage.googleapis.com/v1beta'
     ).replace(/\/+$/, '');
@@ -240,9 +246,13 @@ export class GeminiService implements AIProviderClient {
       );
     }
 
-    const contents: Array<{ role: string; parts: Array<{ text: string }> }> = [];
+    const contents: Array<{ role: string; parts: Array<{ text: string }> }> =
+      [];
 
-    if (options?.conversationHistory && options.conversationHistory.length > 0) {
+    if (
+      options?.conversationHistory &&
+      options.conversationHistory.length > 0
+    ) {
       for (const msg of options.conversationHistory) {
         contents.push({
           role: msg.role === 'assistant' ? 'model' : 'user',
@@ -304,7 +314,9 @@ export class GeminiService implements AIProviderClient {
     }
 
     if (!response || !response.ok || !response.body) {
-      const errText = response ? await response.text() : 'No response from Gemini API';
+      const errText = response
+        ? await response.text()
+        : 'No response from Gemini API';
       let errData: any = {};
       try {
         errData = JSON.parse(errText);
@@ -322,7 +334,8 @@ export class GeminiService implements AIProviderClient {
       });
 
       throw new BadGatewayException(
-        errData?.error?.message || 'Failed to stream response from Gemini provider.',
+        errData?.error?.message ||
+          'Failed to stream response from Gemini provider.',
       );
     }
 
@@ -392,4 +405,3 @@ export class GeminiService implements AIProviderClient {
     }
   }
 }
-

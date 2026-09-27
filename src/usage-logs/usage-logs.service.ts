@@ -30,7 +30,8 @@ export class UsageLogsService {
     try {
       const promptTokens = options.promptTokens ?? 0;
       const completionTokens = options.completionTokens ?? 0;
-      const totalTokens = options.totalTokens ?? promptTokens + completionTokens;
+      const totalTokens =
+        options.totalTokens ?? promptTokens + completionTokens;
 
       const log = await this.prisma.apiUsageLog.create({
         data: {

@@ -149,7 +149,9 @@ export class AIProviderFactory {
     prompt: string,
     requestedType?: ProviderType,
     options?: AIRequestOptions,
-  ): AsyncGenerator<import('../interfaces/ai-provider.interface').AIStreamChunk> {
+  ): AsyncGenerator<
+    import('../interfaces/ai-provider.interface').AIStreamChunk
+  > {
     const config = await this.getProviderConfig(requestedType);
     const client = this.getProviderClient(config.type);
 

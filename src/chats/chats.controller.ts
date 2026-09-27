@@ -52,7 +52,8 @@ export class ChatsController {
     description: 'Invalid prompt or provider configuration error.',
   })
   @ApiUnauthorizedResponse({
-    description: 'Bearer token or HttpOnly cookie missing, expired, or invalid.',
+    description:
+      'Bearer token or HttpOnly cookie missing, expired, or invalid.',
   })
   async createChat(
     @CurrentUser('id') userId: string,
@@ -80,7 +81,8 @@ export class ChatsController {
     description: 'Invalid prompt or provider configuration error.',
   })
   @ApiUnauthorizedResponse({
-    description: 'Bearer token or HttpOnly cookie missing, expired, or invalid.',
+    description:
+      'Bearer token or HttpOnly cookie missing, expired, or invalid.',
   })
   async createChatStream(
     @CurrentUser('id') userId: string,
@@ -114,7 +116,8 @@ export class ChatsController {
     description: 'User chat history fetched successfully.',
   })
   @ApiUnauthorizedResponse({
-    description: 'Bearer token or HttpOnly cookie missing, expired, or invalid.',
+    description:
+      'Bearer token or HttpOnly cookie missing, expired, or invalid.',
   })
   async getUserConversations(
     @CurrentUser('id') userId: string,
@@ -139,7 +142,8 @@ export class ChatsController {
     description: 'Chat details retrieved successfully.',
   })
   @ApiForbiddenResponse({
-    description: 'Forbidden. You are not authorized to access another user’s chat.',
+    description:
+      'Forbidden. You are not authorized to access another user’s chat.',
   })
   @ApiNotFoundResponse({
     description: 'Chat not found.',
@@ -170,7 +174,8 @@ export class ChatsController {
     description: 'Chat deleted successfully.',
   })
   @ApiForbiddenResponse({
-    description: 'Forbidden. You are not authorized to delete another user’s chat.',
+    description:
+      'Forbidden. You are not authorized to delete another user’s chat.',
   })
   @ApiNotFoundResponse({
     description: 'Chat not found.',
@@ -178,10 +183,7 @@ export class ChatsController {
   @ApiUnauthorizedResponse({
     description: 'Unauthorized access.',
   })
-  async deleteChat(
-    @CurrentUser('id') userId: string,
-    @Param('id') id: string,
-  ) {
+  async deleteChat(@CurrentUser('id') userId: string, @Param('id') id: string) {
     return this.chatsService.deleteChat(userId, id);
   }
 }

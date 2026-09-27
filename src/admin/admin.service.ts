@@ -253,7 +253,8 @@ export class AdminService {
     if (query.providerId) where.providerId = query.providerId;
     if (query.requestType) where.requestType = query.requestType;
     if (query.status) where.status = query.status;
-    if (query.endpoint) where.endpoint = { contains: query.endpoint, mode: 'insensitive' };
+    if (query.endpoint)
+      where.endpoint = { contains: query.endpoint, mode: 'insensitive' };
 
     if (query.from || query.to) {
       where.createdAt = {};

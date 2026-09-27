@@ -75,7 +75,9 @@ export class ChatsService {
 
     const chatTitle =
       dto.title ||
-      (userPrompt.length > 30 ? userPrompt.substring(0, 30) + '...' : userPrompt);
+      (userPrompt.length > 30
+        ? userPrompt.substring(0, 30) + '...'
+        : userPrompt);
 
     const chat = await this.prisma.$transaction(
       async (tx) => {

@@ -208,7 +208,8 @@ export class ProvidersController {
     description: 'AI provider deleted successfully.',
   })
   @ApiBadRequestResponse({
-    description: 'Provider is default or has historical references and cannot be deleted.',
+    description:
+      'Provider is default or has historical references and cannot be deleted.',
   })
   @ApiNotFoundResponse({
     description: 'AI provider not found.',

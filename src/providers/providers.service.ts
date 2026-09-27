@@ -140,8 +140,10 @@ export class ProvidersService {
     if (dto.type !== undefined) updateData.providerType = dto.type;
     if (dto.modelName !== undefined) updateData.modelName = dto.modelName;
     if (dto.baseUrl !== undefined) updateData.baseUrl = dto.baseUrl;
-    if (dto.costPer1kInput !== undefined) updateData.costPer1kInput = dto.costPer1kInput;
-    if (dto.costPer1kOutput !== undefined) updateData.costPer1kOutput = dto.costPer1kOutput;
+    if (dto.costPer1kInput !== undefined)
+      updateData.costPer1kInput = dto.costPer1kInput;
+    if (dto.costPer1kOutput !== undefined)
+      updateData.costPer1kOutput = dto.costPer1kOutput;
 
     if (dto.apiKey !== undefined && dto.apiKey.trim() !== '') {
       updateData.encryptedApiKey = this.encryptionService.encrypt(dto.apiKey);
@@ -152,7 +154,9 @@ export class ProvidersService {
       // Safety rule: A disabled provider cannot remain default
       if (!dto.isEnabled && provider.isDefault) {
         updateData.isDefault = false;
-        this.logger.log(`Disabled default provider [${id}]. Reset isDefault to false.`);
+        this.logger.log(
+          `Disabled default provider [${id}]. Reset isDefault to false.`,
+        );
       }
     }
 
@@ -188,7 +192,9 @@ export class ProvidersService {
     // Safety rule: If disabling the current default provider, remove default flag
     if (!newIsActive && provider.isDefault) {
       updateData.isDefault = false;
-      this.logger.log(`Disabling active default provider [${id}]. Reset isDefault to false.`);
+      this.logger.log(
+        `Disabling active default provider [${id}]. Reset isDefault to false.`,
+      );
     }
 
     const updated = await this.prisma.aIProvider.update({
@@ -237,7 +243,9 @@ export class ProvidersService {
       }),
     ]);
 
-    this.logger.log(`Set AI Provider [${id}] (${provider.name}) as default provider.`);
+    this.logger.log(
+      `Set AI Provider [${id}] (${provider.name}) as default provider.`,
+    );
 
     return {
       success: true,

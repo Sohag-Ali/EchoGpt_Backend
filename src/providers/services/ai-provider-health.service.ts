@@ -38,15 +38,21 @@ export class AiProviderHealthService {
     }
 
     if (!provider.encryptedApiKey) {
-      throw new BadRequestException('Provider has no encrypted API key stored.');
+      throw new BadRequestException(
+        'Provider has no encrypted API key stored.',
+      );
     }
 
     let apiKey = '';
     try {
       apiKey = this.encryptionService.decrypt(provider.encryptedApiKey);
     } catch (error: any) {
-      this.logger.error(`Failed to decrypt API key for provider [${provider.id}]`);
-      throw new BadRequestException('Failed to decrypt provider API key for verification.');
+      this.logger.error(
+        `Failed to decrypt API key for provider [${provider.id}]`,
+      );
+      throw new BadRequestException(
+        'Failed to decrypt provider API key for verification.',
+      );
     }
 
     const startTime = Date.now();
@@ -55,7 +61,11 @@ export class AiProviderHealthService {
 
     try {
       if (provider.providerType === ProviderType.OPENAI) {
-        const url = (provider.baseUrl || 'https://api.openai.com/v1').replace(/\/+$/, '') + '/models';
+        const url =
+          (provider.baseUrl || 'https://api.openai.com/v1').replace(
+            /\/+$/,
+            '',
+          ) + '/models';
         const res = await fetch(url, {
           method: 'GET',
           headers: {
@@ -65,7 +75,11 @@ export class AiProviderHealthService {
         responseTimeMs = Date.now() - startTime;
         isHealthy = res.ok || res.status === 200;
       } else if (provider.providerType === ProviderType.ANTHROPIC) {
-        const url = (provider.baseUrl || 'https://api.anthropic.com/v1').replace(/\/+$/, '') + '/messages';
+        const url =
+          (provider.baseUrl || 'https://api.anthropic.com/v1').replace(
+            /\/+$/,
+            '',
+          ) + '/messages';
         const res = await fetch(url, {
           method: 'POST',
           headers: {
@@ -74,7 +88,10 @@ export class AiProviderHealthService {
             'anthropic-version': '2023-06-01',
           },
           body: JSON.stringify({
-            model: provider.modelName && provider.modelName !== 'default' ? provider.modelName : 'claude-3-haiku-20240307',
+            model:
+              provider.modelName && provider.modelName !== 'default'
+                ? provider.modelName
+                : 'claude-3-haiku-20240307',
             max_tokens: 1,
             messages: [{ role: 'user', content: 'health check' }],
           }),
@@ -82,7 +99,9 @@ export class AiProviderHealthService {
         responseTimeMs = Date.now() - startTime;
         isHealthy = res.ok || res.status === 200 || res.status === 400; // 400 may mean model param check succeeded
       } else if (provider.providerType === ProviderType.GEMINI) {
-        const baseUrl = provider.baseUrl || 'https://generativelanguage.googleapis.com/v1beta';
+        const baseUrl =
+          provider.baseUrl ||
+          'https://generativelanguage.googleapis.com/v1beta';
         const url = `${baseUrl.replace(/\/+$/, '')}/models?key=${apiKey}`;
         const res = await fetch(url, {
           method: 'GET',
@@ -103,7 +122,9 @@ export class AiProviderHealthService {
       }
     } catch (error: any) {
       responseTimeMs = Date.now() - startTime;
-      this.logger.warn(`Health check ping failed for provider [${provider.name}]: ${error.message}`);
+      this.logger.warn(
+        `Health check ping failed for provider [${provider.name}]: ${error.message}`,
+      );
       isHealthy = false;
     }
 

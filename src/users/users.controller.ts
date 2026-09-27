@@ -50,7 +50,8 @@ export class UsersController {
     description: 'Account information fetched successfully.',
   })
   @ApiUnauthorizedResponse({
-    description: 'Bearer token or HttpOnly cookie missing, expired, or invalid.',
+    description:
+      'Bearer token or HttpOnly cookie missing, expired, or invalid.',
   })
   async getMe(@CurrentUser('id') userId: string) {
     return this.usersService.getMe(userId);
@@ -59,7 +60,9 @@ export class UsersController {
   @Get('me/profile')
   @HttpCode(HttpStatus.OK)
   @ApiBearerAuth('JWT-auth')
-  @ApiOperation({ summary: 'Get current user account and complete UserProfile data' })
+  @ApiOperation({
+    summary: 'Get current user account and complete UserProfile data',
+  })
   @ApiResponse({
     status: 200,
     description: 'Profile fetched successfully.',
@@ -74,7 +77,9 @@ export class UsersController {
   @Get('me/usage-logs')
   @HttpCode(HttpStatus.OK)
   @ApiBearerAuth('JWT-auth')
-  @ApiOperation({ summary: 'Get current user API usage audit logs with pagination' })
+  @ApiOperation({
+    summary: 'Get current user API usage audit logs with pagination',
+  })
   @ApiQuery({ name: 'page', required: false, type: Number, example: 1 })
   @ApiQuery({ name: 'limit', required: false, type: Number, example: 20 })
   @ApiResponse({
@@ -92,7 +97,9 @@ export class UsersController {
   @Patch('me/profile')
   @HttpCode(HttpStatus.OK)
   @ApiBearerAuth('JWT-auth')
-  @ApiOperation({ summary: 'Create or update own optional UserProfile details' })
+  @ApiOperation({
+    summary: 'Create or update own optional UserProfile details',
+  })
   @ApiResponse({
     status: 200,
     description: 'Profile updated successfully.',
@@ -131,7 +138,9 @@ export class UsersController {
   @Patch('me/deactivate')
   @HttpCode(HttpStatus.OK)
   @ApiBearerAuth('JWT-auth')
-  @ApiOperation({ summary: 'Deactivate own user account using current password' })
+  @ApiOperation({
+    summary: 'Deactivate own user account using current password',
+  })
   @ApiResponse({
     status: 200,
     description: 'Account deactivated successfully.',
@@ -160,7 +169,10 @@ export class UsersController {
   @Roles(RoleType.ADMIN)
   @HttpCode(HttpStatus.OK)
   @ApiBearerAuth('JWT-auth')
-  @ApiOperation({ summary: 'Admin: Get paginated users with search & filters (ADMIN role required)' })
+  @ApiOperation({
+    summary:
+      'Admin: Get paginated users with search & filters (ADMIN role required)',
+  })
   @ApiQuery({ name: 'page', required: false, type: Number, example: 1 })
   @ApiQuery({ name: 'limit', required: false, type: Number, example: 10 })
   @ApiQuery({ name: 'search', required: false, type: String, example: 'sohag' })
@@ -181,7 +193,9 @@ export class UsersController {
   @Roles(RoleType.ADMIN)
   @HttpCode(HttpStatus.OK)
   @ApiBearerAuth('JWT-auth')
-  @ApiOperation({ summary: 'Admin: Get user details by ID (ADMIN role required)' })
+  @ApiOperation({
+    summary: 'Admin: Get user details by ID (ADMIN role required)',
+  })
   @ApiParam({ name: 'id', description: 'User UUID' })
   @ApiResponse({
     status: 200,
@@ -201,7 +215,10 @@ export class UsersController {
   @Roles(RoleType.ADMIN)
   @HttpCode(HttpStatus.OK)
   @ApiBearerAuth('JWT-auth')
-  @ApiOperation({ summary: 'Admin: Update user controlled fields (name, role, isActive) (ADMIN role required)' })
+  @ApiOperation({
+    summary:
+      'Admin: Update user controlled fields (name, role, isActive) (ADMIN role required)',
+  })
   @ApiParam({ name: 'id', description: 'User UUID' })
   @ApiResponse({
     status: 200,
@@ -227,7 +244,9 @@ export class UsersController {
   @Roles(RoleType.ADMIN)
   @HttpCode(HttpStatus.OK)
   @ApiBearerAuth('JWT-auth')
-  @ApiOperation({ summary: 'Admin: Delete user and associated records (ADMIN role required)' })
+  @ApiOperation({
+    summary: 'Admin: Delete user and associated records (ADMIN role required)',
+  })
   @ApiParam({ name: 'id', description: 'User UUID' })
   @ApiResponse({
     status: 200,

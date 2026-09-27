@@ -13,7 +13,8 @@ export const envValidationSchema = Joi.object({
 
   // PostgreSQL Database Connection
   DATABASE_URL: Joi.string().required().messages({
-    'any.required': 'DATABASE_URL environment variable is required for Prisma database connection.',
+    'any.required':
+      'DATABASE_URL environment variable is required for Prisma database connection.',
   }),
 
   // JWT Authentication Secrets & Expirations
@@ -67,4 +68,7 @@ export const envValidationSchema = Joi.object({
   SEARCH_API_KEY: Joi.string().allow('').optional(),
   SEARCH_API_BASE_URL: Joi.string().allow('').optional(),
   SEARCH_CACHE_TTL: Joi.number().default(600),
+
+  // Google OAuth Configuration
+  GOOGLE_CLIENT_ID: Joi.string().allow('').optional(),
 });

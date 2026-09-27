@@ -1,10 +1,4 @@
-import {
-  Controller,
-  Get,
-  HttpCode,
-  HttpStatus,
-  Post,
-} from '@nestjs/common';
+import { Controller, Get, HttpCode, HttpStatus, Post } from '@nestjs/common';
 import {
   ApiBadRequestResponse,
   ApiBearerAuth,
@@ -32,7 +26,8 @@ export class SubscriptionsController {
     description: 'Subscription fetched successfully.',
   })
   @ApiUnauthorizedResponse({
-    description: 'Bearer token or HttpOnly cookie missing, expired, or invalid.',
+    description:
+      'Bearer token or HttpOnly cookie missing, expired, or invalid.',
   })
   @ApiNotFoundResponse({
     description: 'Subscription record not found.',
@@ -44,13 +39,16 @@ export class SubscriptionsController {
   @Get('usage')
   @HttpCode(HttpStatus.OK)
   @ApiBearerAuth('JWT-auth')
-  @ApiOperation({ summary: 'Get current subscription request limits and usage' })
+  @ApiOperation({
+    summary: 'Get current subscription request limits and usage',
+  })
   @ApiResponse({
     status: 200,
     description: 'Subscription usage retrieved successfully.',
   })
   @ApiUnauthorizedResponse({
-    description: 'Bearer token or HttpOnly cookie missing, expired, or invalid.',
+    description:
+      'Bearer token or HttpOnly cookie missing, expired, or invalid.',
   })
   @ApiNotFoundResponse({
     description: 'Subscription record not found.',
@@ -71,7 +69,8 @@ export class SubscriptionsController {
     description: 'User is already on the PREMIUM plan.',
   })
   @ApiUnauthorizedResponse({
-    description: 'Bearer token or HttpOnly cookie missing, expired, or invalid.',
+    description:
+      'Bearer token or HttpOnly cookie missing, expired, or invalid.',
   })
   async upgradeSubscription(@CurrentUser('id') userId: string) {
     return this.subscriptionsService.upgradeSubscription(userId);
@@ -89,7 +88,8 @@ export class SubscriptionsController {
     description: 'User is already on the FREE plan.',
   })
   @ApiUnauthorizedResponse({
-    description: 'Bearer token or HttpOnly cookie missing, expired, or invalid.',
+    description:
+      'Bearer token or HttpOnly cookie missing, expired, or invalid.',
   })
   async downgradeSubscription(@CurrentUser('id') userId: string) {
     return this.subscriptionsService.downgradeSubscription(userId);

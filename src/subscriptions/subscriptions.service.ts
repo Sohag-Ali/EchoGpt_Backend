@@ -41,7 +41,9 @@ export class SubscriptionsService {
     });
 
     if (!subscription) {
-      throw new NotFoundException('Subscription record not found for this user.');
+      throw new NotFoundException(
+        'Subscription record not found for this user.',
+      );
     }
 
     const now = new Date();

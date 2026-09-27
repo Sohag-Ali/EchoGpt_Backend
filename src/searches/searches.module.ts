@@ -13,4 +13,3 @@ import { SubscriptionsModule } from '../subscriptions/subscriptions.module';
   exports: [SearchesService, WebSearchProviderService, SearchCacheService],
 })
 export class SearchesModule {}
-

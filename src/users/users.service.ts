@@ -71,7 +71,8 @@ export class UsersService {
       throw new NotFoundException('User profile not found.');
     }
 
-    const roleName = typeof user.role === 'string' ? user.role : user.role?.name;
+    const roleName =
+      typeof user.role === 'string' ? user.role : user.role?.name;
 
     return {
       success: true,
@@ -136,7 +137,8 @@ export class UsersService {
       throw new NotFoundException('User profile not found.');
     }
 
-    const roleName = typeof user.role === 'string' ? user.role : user.role?.name;
+    const roleName =
+      typeof user.role === 'string' ? user.role : user.role?.name;
 
     return {
       success: true,
@@ -223,22 +225,32 @@ export class UsersService {
     });
 
     if (!user || !user.password) {
-      throw new UnauthorizedException('User account or password record not found.');
+      throw new UnauthorizedException(
+        'User account or password record not found.',
+      );
     }
 
     // 1. Verify current password
-    const isCurrentPasswordValid = await bcrypt.compare(dto.currentPassword, user.password);
+    const isCurrentPasswordValid = await bcrypt.compare(
+      dto.currentPassword,
+      user.password,
+    );
     if (!isCurrentPasswordValid) {
       throw new BadRequestException('Incorrect current password.');
     }
 
     // 2. Prevent same password
     if (dto.currentPassword === dto.newPassword) {
-      throw new BadRequestException('New password cannot be the same as the current password.');
+      throw new BadRequestException(
+        'New password cannot be the same as the current password.',
+      );
     }
 
     // 3. Hash new password
-    const saltRounds = this.configService.get<number>('jwt.bcryptSaltRounds', 10);
+    const saltRounds = this.configService.get<number>(
+      'jwt.bcryptSaltRounds',
+      10,
+    );
     const newHashedPassword = await bcrypt.hash(dto.newPassword, saltRounds);
 
     // 4. Update in PostgreSQL
@@ -253,7 +265,9 @@ export class UsersService {
       data: { isRevoked: true },
     });
 
-    this.logger.log(`Password changed successfully for user [${userId}]. Revoked active sessions.`);
+    this.logger.log(
+      `Password changed successfully for user [${userId}]. Revoked active sessions.`,
+    );
 
     return {
       success: true,
@@ -271,7 +285,9 @@ export class UsersService {
     });
 
     if (!user || !user.password) {
-      throw new UnauthorizedException('User account or password record not found.');
+      throw new UnauthorizedException(
+        'User account or password record not found.',
+      );
     }
 
     // 1. Verify password
@@ -290,7 +306,9 @@ export class UsersService {
       });
 
       if (activeAdminCount <= 1) {
-        throw new ConflictException('Cannot deactivate or delete the last active administrator.');
+        throw new ConflictException(
+          'Cannot deactivate or delete the last active administrator.',
+        );
       }
     }
 
@@ -413,7 +431,8 @@ export class UsersService {
       throw new NotFoundException('User not found.');
     }
 
-    const isCurrentAdmin = targetUser.role && targetUser.role.name === RoleType.ADMIN;
+    const isCurrentAdmin =
+      targetUser.role && targetUser.role.name === RoleType.ADMIN;
     const willBeDeactivated = dto.isActive === false;
     const willBeDemoted = dto.role && dto.role !== RoleType.ADMIN;
 
@@ -427,7 +446,9 @@ export class UsersService {
       });
 
       if (activeAdminCount <= 1) {
-        throw new ConflictException('Cannot deactivate or demote the last active administrator.');
+        throw new ConflictException(
+          'Cannot deactivate or demote the last active administrator.',
+        );
       }
     }
 
@@ -463,7 +484,9 @@ export class UsersService {
       });
     }
 
-    this.logger.log(`Admin updated user [${targetUserId}]: role=${dto.role}, isActive=${dto.isActive}`);
+    this.logger.log(
+      `Admin updated user [${targetUserId}]: role=${dto.role}, isActive=${dto.isActive}`,
+    );
 
     return {
       success: true,
@@ -495,7 +518,9 @@ export class UsersService {
       });
 
       if (activeAdminCount <= 1) {
-        throw new ConflictException('Cannot deactivate or delete the last active administrator.');
+        throw new ConflictException(
+          'Cannot deactivate or delete the last active administrator.',
+        );
       }
     }
 
@@ -508,12 +533,18 @@ export class UsersService {
       await tx.chat.deleteMany({ where: { userId: targetUserId } });
       await tx.webSearch.deleteMany({ where: { userId: targetUserId } });
       await tx.apiUsageLog.deleteMany({ where: { userId: targetUserId } });
-      await tx.emailVerificationToken.deleteMany({ where: { userId: targetUserId } });
-      await tx.passwordResetToken.deleteMany({ where: { userId: targetUserId } });
+      await tx.emailVerificationToken.deleteMany({
+        where: { userId: targetUserId },
+      });
+      await tx.passwordResetToken.deleteMany({
+        where: { userId: targetUserId },
+      });
       await tx.user.delete({ where: { id: targetUserId } });
     });
 
-    this.logger.log(`Admin [${currentAdminId}] deleted user [${targetUserId}] and all associated records.`);
+    this.logger.log(
+      `Admin [${currentAdminId}] deleted user [${targetUserId}] and all associated records.`,
+    );
 
     return {
       success: true,
@@ -567,4 +598,3 @@ export class UsersService {
     };
   }
 }
-

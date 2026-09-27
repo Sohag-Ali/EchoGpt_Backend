@@ -7,7 +7,12 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { PaymentProvider, PaymentStatus, SubscriptionPlan, SubscriptionStatus } from '@prisma/client';
+import {
+  PaymentProvider,
+  PaymentStatus,
+  SubscriptionPlan,
+  SubscriptionStatus,
+} from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { BkashService } from './bkash.service';
 import { ExecutePaymentDto } from './dto/execute-payment.dto';
@@ -27,10 +32,12 @@ export class PaymentsService {
    * Guarantees no trailing slashes and ensures full path /api/v1/payments/bkash/callback.
    */
   private getCallbackUrl(): string {
-    let rawUrl = this.configService.get<string>(
-      'bkash.callbackUrl',
-      'http://localhost:5000/api/v1/payments/bkash/callback',
-    ).trim();
+    let rawUrl = this.configService
+      .get<string>(
+        'bkash.callbackUrl',
+        'http://localhost:5000/api/v1/payments/bkash/callback',
+      )
+      .trim();
 
     // Strip trailing slashes
     rawUrl = rawUrl.replace(/\/+$/, '');
@@ -58,7 +65,9 @@ export class PaymentsService {
     });
 
     if (!subscription) {
-      throw new NotFoundException('Subscription record not found for this user.');
+      throw new NotFoundException(
+        'Subscription record not found for this user.',
+      );
     }
 
     if (
@@ -68,7 +77,10 @@ export class PaymentsService {
       throw new ConflictException('User is already on the PREMIUM plan.');
     }
 
-    const premiumPrice = this.configService.get<number>('bkash.premiumPrice', 500);
+    const premiumPrice = this.configService.get<number>(
+      'bkash.premiumPrice',
+      500,
+    );
     const callbackUrl = this.getCallbackUrl();
 
     const invoiceId = `INV-${Date.now()}-${Math.floor(1000 + Math.random() * 9000)}`;
@@ -139,17 +151,23 @@ export class PaymentsService {
     });
 
     if (!payment) {
-      throw new NotFoundException(`Payment record for bKash PaymentID [${paymentID}] not found.`);
+      throw new NotFoundException(
+        `Payment record for bKash PaymentID [${paymentID}] not found.`,
+      );
     }
 
     // 2. Ownership Security Check: Validate payment belongs to current authenticated user
     if (payment.userId !== userId) {
-      throw new ForbiddenException('You are not authorized to confirm this payment.');
+      throw new ForbiddenException(
+        'You are not authorized to confirm this payment.',
+      );
     }
 
     // 3. Idempotency Check: Prevent duplicate upgrades
     if (payment.status === PaymentStatus.COMPLETED) {
-      this.logger.log(`Payment [${payment.id}] is already COMPLETED. Returning existing status.`);
+      this.logger.log(
+        `Payment [${payment.id}] is already COMPLETED. Returning existing status.`,
+      );
       return {
         success: true,
         message: 'Payment already completed.',
@@ -171,7 +189,9 @@ export class PaymentsService {
           where: { id: payment.id },
           data: { status: PaymentStatus.FAILED },
         });
-        throw new BadRequestException(`bKash Payment failed: ${bkashRes.statusMessage}`);
+        throw new BadRequestException(
+          `bKash Payment failed: ${bkashRes.statusMessage}`,
+        );
       }
 
       // 5. Calculate new 1-month period
@@ -224,7 +244,8 @@ export class PaymentsService {
 
       return {
         success: true,
-        message: 'Payment verified and executed successfully. Subscription upgraded to PREMIUM!',
+        message:
+          'Payment verified and executed successfully. Subscription upgraded to PREMIUM!',
         data: {
           paymentId: payment.id,
           transactionId: bkashRes.trxID,
@@ -235,7 +256,10 @@ export class PaymentsService {
         },
       };
     } catch (error: any) {
-      if (error instanceof BadRequestException || error instanceof ForbiddenException) {
+      if (
+        error instanceof BadRequestException ||
+        error instanceof ForbiddenException
+      ) {
         throw error;
       }
       // Update payment status to FAILED on error
@@ -243,8 +267,12 @@ export class PaymentsService {
         where: { id: payment.id },
         data: { status: PaymentStatus.FAILED },
       });
-      this.logger.error(`Error executing payment [${payment.id}]: ${error.message}`);
-      throw new BadRequestException('Payment confirmation failed. Please contact support.');
+      this.logger.error(
+        `Error executing payment [${payment.id}]: ${error.message}`,
+      );
+      throw new BadRequestException(
+        'Payment confirmation failed. Please contact support.',
+      );
     }
   }
 
@@ -264,7 +292,9 @@ export class PaymentsService {
     });
 
     if (!payment) {
-      this.logger.warn(`bKash callback failed: Payment record not found for PaymentID [${cleanPaymentId}]`);
+      this.logger.warn(
+        `bKash callback failed: Payment record not found for PaymentID [${cleanPaymentId}]`,
+      );
       throw new NotFoundException('Payment record not found.');
     }
 
@@ -273,7 +303,9 @@ export class PaymentsService {
         where: { id: payment.id },
         data: { status: PaymentStatus.CANCELLED },
       });
-      this.logger.log(`Payment [${payment.id}] marked CANCELLED via bKash callback.`);
+      this.logger.log(
+        `Payment [${payment.id}] marked CANCELLED via bKash callback.`,
+      );
       return {
         success: false,
         message: 'Payment was cancelled by user. Subscription remains FREE.',
@@ -289,7 +321,9 @@ export class PaymentsService {
         where: { id: payment.id },
         data: { status: PaymentStatus.FAILED },
       });
-      this.logger.log(`Payment [${payment.id}] marked FAILED via bKash callback.`);
+      this.logger.log(
+        `Payment [${payment.id}] marked FAILED via bKash callback.`,
+      );
       return {
         success: false,
         message: 'Payment failed with bKash. Subscription remains FREE.',
@@ -308,7 +342,9 @@ export class PaymentsService {
       return this.executePayment(payment.userId, { paymentID: cleanPaymentId });
     }
 
-    this.logger.warn(`Unknown bKash callback status [${cleanStatus}] for PaymentID [${cleanPaymentId}]`);
+    this.logger.warn(
+      `Unknown bKash callback status [${cleanStatus}] for PaymentID [${cleanPaymentId}]`,
+    );
     return {
       success: false,
       message: `Unknown payment status: ${cleanStatus}`,

@@ -20,10 +20,7 @@ export class SearchCacheService {
    * Normalize search query: trim, lowercase, collapse consecutive spaces.
    */
   normalizeQuery(query: string): string {
-    return (query || '')
-      .trim()
-      .toLowerCase()
-      .replace(/\s+/g, ' ');
+    return (query || '').trim().toLowerCase().replace(/\s+/g, ' ');
   }
 
   /**
@@ -53,7 +50,9 @@ export class SearchCacheService {
       this.logger.log(`[SearchCache] HIT for query: "${query}"`);
       return JSON.parse(cachedData) as SearchResponse;
     } catch (error: any) {
-      this.logger.warn(`[SearchCache] Redis GET error (fallback to provider): ${error.message}`);
+      this.logger.warn(
+        `[SearchCache] Redis GET error (fallback to provider): ${error.message}`,
+      );
       return null;
     }
   }
@@ -62,17 +61,25 @@ export class SearchCacheService {
    * Set search results in Redis cache with TTL.
    * Fails gracefully without throwing errors if Redis fails.
    */
-  async set(query: string, data: SearchResponse, ttlOverride?: number): Promise<boolean> {
+  async set(
+    query: string,
+    data: SearchResponse,
+    ttlOverride?: number,
+  ): Promise<boolean> {
     try {
       const key = this.buildCacheKey(query);
       const ttl = ttlOverride ?? this.ttlSeconds;
       const payload = JSON.stringify(data);
 
       await this.redisService.set(key, payload, ttl);
-      this.logger.log(`[SearchCache] SET successful for query: "${query}" (TTL: ${ttl}s)`);
+      this.logger.log(
+        `[SearchCache] SET successful for query: "${query}" (TTL: ${ttl}s)`,
+      );
       return true;
     } catch (error: any) {
-      this.logger.warn(`[SearchCache] Redis SET error (bypassing cache): ${error.message}`);
+      this.logger.warn(
+        `[SearchCache] Redis SET error (bypassing cache): ${error.message}`,
+      );
       return false;
     }
   }

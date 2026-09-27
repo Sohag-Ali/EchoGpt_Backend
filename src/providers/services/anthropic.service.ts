@@ -27,7 +27,10 @@ export class AnthropicService implements AIProviderClient {
     options?: AIRequestOptions,
   ): Promise<AIResponse> {
     const startTime = Date.now();
-    const baseUrl = (config.baseUrl || 'https://api.anthropic.com/v1').replace(/\/+$/, '');
+    const baseUrl = (config.baseUrl || 'https://api.anthropic.com/v1').replace(
+      /\/+$/,
+      '',
+    );
     const model =
       config.modelName && config.modelName !== 'default'
         ? config.modelName
@@ -48,7 +51,10 @@ export class AnthropicService implements AIProviderClient {
 
     const messages: Array<{ role: string; content: string }> = [];
 
-    if (options?.conversationHistory && options.conversationHistory.length > 0) {
+    if (
+      options?.conversationHistory &&
+      options.conversationHistory.length > 0
+    ) {
       for (const msg of options.conversationHistory) {
         if (msg.role === 'user' || msg.role === 'assistant') {
           messages.push({
@@ -132,7 +138,9 @@ export class AnthropicService implements AIProviderClient {
     prompt: string,
     config: AIProviderConfig,
     options?: AIRequestOptions,
-  ): AsyncGenerator<import('../interfaces/ai-provider.interface').AIStreamChunk> {
+  ): AsyncGenerator<
+    import('../interfaces/ai-provider.interface').AIStreamChunk
+  > {
     throw new BadRequestException(
       'Streaming response is currently only implemented for Google Gemini provider.',
     );

@@ -27,7 +27,8 @@ export class JwtStrategy extends PassportStrategy(Strategy, 'jwt') {
         },
       ]),
       ignoreExpiration: false,
-      secretOrKey: configService.get<string>('jwt.accessSecret') || 'default-secret-key',
+      secretOrKey:
+        configService.get<string>('jwt.accessSecret') || 'default-secret-key',
     });
   }
 
@@ -37,7 +38,9 @@ export class JwtStrategy extends PassportStrategy(Strategy, 'jwt') {
    */
   async validate(payload: JwtPayload) {
     if (!payload || !payload.sub) {
-      throw new UnauthorizedException('Invalid or malformed authentication token.');
+      throw new UnauthorizedException(
+        'Invalid or malformed authentication token.',
+      );
     }
 
     const user = await this.prisma.user.findUnique({
@@ -67,7 +70,9 @@ export class JwtStrategy extends PassportStrategy(Strategy, 'jwt') {
     });
 
     if (!user) {
-      throw new UnauthorizedException('User associated with this token no longer exists.');
+      throw new UnauthorizedException(
+        'User associated with this token no longer exists.',
+      );
     }
 
     if (!user.isActive) {

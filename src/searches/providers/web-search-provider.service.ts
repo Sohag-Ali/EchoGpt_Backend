@@ -62,7 +62,9 @@ export class WebSearchProviderService implements SearchProvider {
         this.logger.error(
           `Tavily Search API returned status ${response.status}`,
         );
-        throw new BadGatewayException('Web search provider is currently unavailable.');
+        throw new BadGatewayException(
+          'Web search provider is currently unavailable.',
+        );
       }
 
       const data: any = await response.json();
@@ -119,12 +121,16 @@ export class WebSearchProviderService implements SearchProvider {
       const results: SearchResultItem[] = [];
 
       // Extract result links & snippets using regex from DDG HTML
-      const regex = /<a class="result__url" href="([^"]+)".*?>[\s\S]*?<a class="result__snippet[^"]*"[^>]*>([\s\S]*?)<\/a>/gi;
+      const regex =
+        /<a class="result__url" href="([^"]+)".*?>[\s\S]*?<a class="result__snippet[^"]*"[^>]*>([\s\S]*?)<\/a>/gi;
       const titleRegex = /<a class="result__a"[^>]*>([\s\S]*?)<\/a>/gi;
 
       const titles: string[] = [];
       let matchTitle;
-      while ((matchTitle = titleRegex.exec(html)) !== null && titles.length < limit) {
+      while (
+        (matchTitle = titleRegex.exec(html)) !== null &&
+        titles.length < limit
+      ) {
         const cleanTitle = matchTitle[1].replace(/<[^>]+>/g, '').trim();
         if (cleanTitle) titles.push(cleanTitle);
       }
@@ -135,7 +141,9 @@ export class WebSearchProviderService implements SearchProvider {
       while ((match = regex.exec(html)) !== null && urls.length < limit) {
         let rawUrl = match[1];
         if (rawUrl.includes('uddg=')) {
-          const decoded = decodeURIComponent(rawUrl.split('uddg=')[1].split('&')[0]);
+          const decoded = decodeURIComponent(
+            rawUrl.split('uddg=')[1].split('&')[0],
+          );
           rawUrl = decoded;
         }
         const cleanSnippet = match[2].replace(/<[^>]+>/g, '').trim();

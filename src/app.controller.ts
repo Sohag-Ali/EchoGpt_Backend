@@ -9,7 +9,13 @@ import {
   Post,
   UnauthorizedException,
 } from '@nestjs/common';
-import { ApiBearerAuth, ApiForbiddenResponse, ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
+import {
+  ApiBearerAuth,
+  ApiForbiddenResponse,
+  ApiOperation,
+  ApiResponse,
+  ApiTags,
+} from '@nestjs/swagger';
 import { RoleType } from '@prisma/client';
 import { Public } from './common/decorators/public.decorator';
 import { Roles } from './common/decorators/roles.decorator';
@@ -48,19 +54,22 @@ export class AppController {
     };
   }
 
-
   @Public()
   @Get('test-errors/unauthorized')
   @ApiOperation({ summary: 'Demonstrate Unauthorized Error (401)' })
   testUnauthorized() {
-    throw new UnauthorizedException('Authentication token is missing or expired.');
+    throw new UnauthorizedException(
+      'Authentication token is missing or expired.',
+    );
   }
 
   @Public()
   @Get('test-errors/forbidden')
   @ApiOperation({ summary: 'Demonstrate Forbidden Error (403)' })
   testForbidden() {
-    throw new ForbiddenException('You do not have permission to access this resource.');
+    throw new ForbiddenException(
+      'You do not have permission to access this resource.',
+    );
   }
 
   @Public()
@@ -74,6 +83,8 @@ export class AppController {
   @Get('test-errors/internal')
   @ApiOperation({ summary: 'Demonstrate Internal Server Error (500)' })
   testInternalError() {
-    throw new Error('Simulated database connection crash or unexpected runtime failure.');
+    throw new Error(
+      'Simulated database connection crash or unexpected runtime failure.',
+    );
   }
 }

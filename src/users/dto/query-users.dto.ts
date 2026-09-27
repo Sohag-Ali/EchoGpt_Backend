@@ -11,24 +11,37 @@ export class QueryUsersDto {
   @Min(1)
   page?: number = 1;
 
-  @ApiPropertyOptional({ example: 10, default: 10, description: 'Number of items per page' })
+  @ApiPropertyOptional({
+    example: 10,
+    default: 10,
+    description: 'Number of items per page',
+  })
   @IsOptional()
   @Type(() => Number)
   @IsInt()
   @Min(1)
   limit?: number = 10;
 
-  @ApiPropertyOptional({ example: 'sohag', description: 'Search term for name or email' })
+  @ApiPropertyOptional({
+    example: 'sohag',
+    description: 'Search term for name or email',
+  })
   @IsOptional()
   @IsString()
   search?: string;
 
-  @ApiPropertyOptional({ enum: RoleType, description: 'Filter by role (USER, ADMIN)' })
+  @ApiPropertyOptional({
+    enum: RoleType,
+    description: 'Filter by role (USER, ADMIN)',
+  })
   @IsOptional()
   @IsEnum(RoleType)
   role?: RoleType;
 
-  @ApiPropertyOptional({ example: true, description: 'Filter by active status (true/false)' })
+  @ApiPropertyOptional({
+    example: true,
+    description: 'Filter by active status (true/false)',
+  })
   @IsOptional()
   @Transform(({ value }) => {
     if (value === 'true' || value === true) return true;

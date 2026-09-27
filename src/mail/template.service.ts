@@ -15,8 +15,13 @@ export class EmailTemplateService {
   /**
    * Load an HTML template file and replace dynamic placeholders like {{key}}.
    */
-  renderTemplate(templateName: string, variables: Record<string, string>): string {
-    const fileName = templateName.endsWith('.html') ? templateName : `${templateName}.html`;
+  renderTemplate(
+    templateName: string,
+    variables: Record<string, string>,
+  ): string {
+    const fileName = templateName.endsWith('.html')
+      ? templateName
+      : `${templateName}.html`;
     const filePath = path.join(this.templateDir, fileName);
 
     try {
@@ -32,14 +37,19 @@ export class EmailTemplateService {
       }
     } catch (err) {
       const error = err as Error;
-      this.logger.error(`Error loading email template [${fileName}]: ${error.message}`);
+      this.logger.error(
+        `Error loading email template [${fileName}]: ${error.message}`,
+      );
     }
 
     // Dynamic Fallback HTML if template file cannot be loaded
     return this.renderFallbackTemplate(templateName, variables);
   }
 
-  private renderFallbackTemplate(templateName: string, variables: Record<string, string>): string {
+  private renderFallbackTemplate(
+    templateName: string,
+    variables: Record<string, string>,
+  ): string {
     const name = variables.name || 'User';
     if (templateName.includes('verification')) {
       return `<h2>Welcome ${name}!</h2><p>Please verify your email: <a href="${variables.verificationUrl}">Verify Email</a></p>`;

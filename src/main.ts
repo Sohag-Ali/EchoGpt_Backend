@@ -11,7 +11,10 @@ async function bootstrap() {
 
   const configService = app.get(ConfigService);
   const port = configService.get<number>('app.port', 5000);
-  const environment = configService.get<string>('app.environment', 'development');
+  const environment = configService.get<string>(
+    'app.environment',
+    'development',
+  );
   const apiPrefix = configService.get<string>('app.apiPrefix', 'api/v1');
 
   // Middleware for cookies
@@ -73,14 +76,32 @@ async function bootstrap() {
       },
       'JWT-auth',
     )
-    .addTag('Authentication', 'User authentication, registration, login, OTP & token management')
+    .addTag(
+      'Authentication',
+      'User authentication, registration, login, OTP & token management',
+    )
     .addTag('Users', 'User profile management and account operations')
-    .addTag('Subscriptions', 'User subscription plans and request limit monitoring')
+    .addTag(
+      'Subscriptions',
+      'User subscription plans and request limit monitoring',
+    )
     .addTag('Payments', 'bKash payment gateway integration and payment history')
-    .addTag('AI Providers', 'AI Provider configuration and active health pings (Admin)')
-    .addTag('Chats', 'Conversational AI chat, streaming chat (SSE), and thread history')
-    .addTag('Searches', 'Web search engine queries, history, recent searches & autocomplete')
-    .addTag('Admin Management', 'System administration, user management, subscriptions, analytics & health')
+    .addTag(
+      'AI Providers',
+      'AI Provider configuration and active health pings (Admin)',
+    )
+    .addTag(
+      'Chats',
+      'Conversational AI chat, streaming chat (SSE), and thread history',
+    )
+    .addTag(
+      'Searches',
+      'Web search engine queries, history, recent searches & autocomplete',
+    )
+    .addTag(
+      'Admin Management',
+      'System administration, user management, subscriptions, analytics & health',
+    )
     .build();
 
   const document = SwaggerModule.createDocument(app, swaggerConfig);
@@ -95,7 +116,9 @@ async function bootstrap() {
   logger.log(`EchoGPT Backend is running in [${environment}] mode`);
   logger.log(`Server Base URL   : http://localhost:${port}/${apiPrefix}`);
   logger.log(`Swagger Docs URL  : http://localhost:${port}/api/docs`);
-  logger.log(`Health Check URL  : http://localhost:${port}/${apiPrefix}/health`);
+  logger.log(
+    `Health Check URL  : http://localhost:${port}/${apiPrefix}/health`,
+  );
   logger.log(`==========================================================`);
 }
 

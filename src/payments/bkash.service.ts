@@ -63,14 +63,17 @@ export class BkashService {
           `bKash Grant Token failed. Status: ${response.status}, Code: ${data?.statusCode}, Msg: ${data?.statusMessage}`,
         );
         throw new BadGatewayException(
-          data?.statusMessage || 'Failed to authenticate with bKash payment gateway.',
+          data?.statusMessage ||
+            'Failed to authenticate with bKash payment gateway.',
         );
       }
 
       return data.id_token;
     } catch (error: any) {
       if (error instanceof BadGatewayException) throw error;
-      this.logger.error(`Error connecting to bKash Grant Token: ${error.message}`);
+      this.logger.error(
+        `Error connecting to bKash Grant Token: ${error.message}`,
+      );
       throw new BadGatewayException('Unable to reach bKash payment gateway.');
     }
   }
@@ -125,7 +128,9 @@ export class BkashService {
         );
       }
 
-      this.logger.log(`Created bKash payment checkout [PaymentID: ${data.paymentID}]`);
+      this.logger.log(
+        `Created bKash payment checkout [PaymentID: ${data.paymentID}]`,
+      );
 
       return {
         paymentID: data.paymentID,
@@ -137,10 +142,15 @@ export class BkashService {
         transactionStatus: data.transactionStatus,
       };
     } catch (error: any) {
-      if (error instanceof BadRequestException || error instanceof BadGatewayException)
+      if (
+        error instanceof BadRequestException ||
+        error instanceof BadGatewayException
+      )
         throw error;
       this.logger.error(`Error creating bKash payment: ${error.message}`);
-      throw new BadGatewayException('Could not initiate bKash payment process.');
+      throw new BadGatewayException(
+        'Could not initiate bKash payment process.',
+      );
     }
   }
 
@@ -175,19 +185,26 @@ export class BkashService {
 
       const data: any = await response.json();
 
-      if (!response.ok || (data.statusCode !== '0000' && data.statusCode !== '2058')) {
+      if (
+        !response.ok ||
+        (data.statusCode !== '0000' && data.statusCode !== '2058')
+      ) {
         this.logger.error(
           `bKash Execute Payment failed. PaymentID: ${paymentID}, Code: ${data?.statusCode}, Msg: ${data?.statusMessage}`,
         );
         throw new BadRequestException(
-          data?.statusMessage || 'bKash payment execution failed or was declined.',
+          data?.statusMessage ||
+            'bKash payment execution failed or was declined.',
         );
       }
 
       let trxID = data.trxID;
       let transactionStatus = data.transactionStatus;
 
-      if (!trxID && (data.statusCode === '0000' || data.statusCode === '2058')) {
+      if (
+        !trxID &&
+        (data.statusCode === '0000' || data.statusCode === '2058')
+      ) {
         try {
           const queryRes = await this.queryPayment(paymentID);
           if (queryRes?.trxID) {
@@ -197,7 +214,9 @@ export class BkashService {
             transactionStatus = queryRes.transactionStatus;
           }
         } catch (e: any) {
-          this.logger.warn(`Could not fetch queryPayment fallback for PaymentID [${paymentID}]: ${e.message}`);
+          this.logger.warn(
+            `Could not fetch queryPayment fallback for PaymentID [${paymentID}]: ${e.message}`,
+          );
         }
       }
 
@@ -215,10 +234,17 @@ export class BkashService {
         statusMessage: data.statusMessage,
       };
     } catch (error: any) {
-      if (error instanceof BadRequestException || error instanceof BadGatewayException)
+      if (
+        error instanceof BadRequestException ||
+        error instanceof BadGatewayException
+      )
         throw error;
-      this.logger.error(`Error executing bKash payment [${paymentID}]: ${error.message}`);
-      throw new BadGatewayException('Failed to verify payment with bKash gateway.');
+      this.logger.error(
+        `Error executing bKash payment [${paymentID}]: ${error.message}`,
+      );
+      throw new BadGatewayException(
+        'Failed to verify payment with bKash gateway.',
+      );
     }
   }
 
@@ -245,7 +271,9 @@ export class BkashService {
 
       return await response.json();
     } catch (error: any) {
-      this.logger.error(`Error querying bKash payment status: ${error.message}`);
+      this.logger.error(
+        `Error querying bKash payment status: ${error.message}`,
+      );
       throw new BadGatewayException('Could not query bKash payment status.');
     }
   }

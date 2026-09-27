@@ -1,5 +1,9 @@
 import { BadRequestException, Injectable, Logger } from '@nestjs/common';
-import { ApiRequestType, ApiUsageStatus, WebSearchStatus } from '@prisma/client';
+import {
+  ApiRequestType,
+  ApiUsageStatus,
+  WebSearchStatus,
+} from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { SubscriptionsService } from '../subscriptions/subscriptions.service';
 import { WebSearchProviderService } from './providers/web-search-provider.service';
@@ -30,7 +34,9 @@ export class SearchesService {
     const query = (dto.query || '').trim();
 
     if (!query) {
-      throw new BadRequestException('Search query is required and cannot be empty.');
+      throw new BadRequestException(
+        'Search query is required and cannot be empty.',
+      );
     }
 
     // 1. Enforce Subscription Usage Limit pre-execution gate

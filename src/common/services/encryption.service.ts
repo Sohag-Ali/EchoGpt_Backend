@@ -52,7 +52,11 @@ export class EncryptionService {
 
     const iv = Buffer.from(ivHex, 'hex');
     const authTag = Buffer.from(authTagHex, 'hex');
-    const decipher = crypto.createDecipheriv(this.algorithm, this.keyBuffer, iv);
+    const decipher = crypto.createDecipheriv(
+      this.algorithm,
+      this.keyBuffer,
+      iv,
+    );
 
     decipher.setAuthTag(authTag);
 

@@ -27,7 +27,10 @@ export class OpenAIService implements AIProviderClient {
     options?: AIRequestOptions,
   ): Promise<AIResponse> {
     const startTime = Date.now();
-    const baseUrl = (config.baseUrl || 'https://api.openai.com/v1').replace(/\/+$/, '');
+    const baseUrl = (config.baseUrl || 'https://api.openai.com/v1').replace(
+      /\/+$/,
+      '',
+    );
     const model =
       config.modelName && config.modelName !== 'default'
         ? config.modelName
@@ -52,7 +55,10 @@ export class OpenAIService implements AIProviderClient {
       messages.push({ role: 'system', content: options.systemPrompt });
     }
 
-    if (options?.conversationHistory && options.conversationHistory.length > 0) {
+    if (
+      options?.conversationHistory &&
+      options.conversationHistory.length > 0
+    ) {
       for (const msg of options.conversationHistory) {
         messages.push({
           role: msg.role === 'tool' ? 'user' : msg.role,
@@ -131,7 +137,9 @@ export class OpenAIService implements AIProviderClient {
     prompt: string,
     config: AIProviderConfig,
     options?: AIRequestOptions,
-  ): AsyncGenerator<import('../interfaces/ai-provider.interface').AIStreamChunk> {
+  ): AsyncGenerator<
+    import('../interfaces/ai-provider.interface').AIStreamChunk
+  > {
     throw new BadRequestException(
       'Streaming response is currently only implemented for Google Gemini provider.',
     );

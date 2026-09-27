@@ -69,7 +69,9 @@ export class AdminController {
 
   @Get('users')
   @HttpCode(HttpStatus.OK)
-  @ApiOperation({ summary: 'Get paginated users with filters (Requires ADMIN role)' })
+  @ApiOperation({
+    summary: 'Get paginated users with filters (Requires ADMIN role)',
+  })
   @ApiResponse({ status: 200, description: 'Users fetched successfully.' })
   async getUsers(@Query() query: AdminUserQueryDto) {
     return this.adminService.getUsers(query);
@@ -79,7 +81,10 @@ export class AdminController {
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Get detailed user details (Requires ADMIN role)' })
   @ApiParam({ name: 'id', description: 'User ID' })
-  @ApiResponse({ status: 200, description: 'User details fetched successfully.' })
+  @ApiResponse({
+    status: 200,
+    description: 'User details fetched successfully.',
+  })
   @ApiNotFoundResponse({ description: 'User not found.' })
   async getUserById(@Param('id') id: string) {
     return this.adminService.getUserById(id);
@@ -87,23 +92,28 @@ export class AdminController {
 
   @Patch('users/:id')
   @HttpCode(HttpStatus.OK)
-  @ApiOperation({ summary: 'Update user administrative status/role (Requires ADMIN role)' })
+  @ApiOperation({
+    summary: 'Update user administrative status/role (Requires ADMIN role)',
+  })
   @ApiParam({ name: 'id', description: 'User ID' })
   @ApiResponse({ status: 200, description: 'User updated successfully.' })
-  @ApiConflictResponse({ description: 'Cannot deactivate or demote the last active administrator.' })
-  async updateUser(
-    @Param('id') id: string,
-    @Body() dto: UpdateAdminUserDto,
-  ) {
+  @ApiConflictResponse({
+    description: 'Cannot deactivate or demote the last active administrator.',
+  })
+  async updateUser(@Param('id') id: string, @Body() dto: UpdateAdminUserDto) {
     return this.adminService.updateUser(id, dto);
   }
 
   @Delete('users/:id')
   @HttpCode(HttpStatus.OK)
-  @ApiOperation({ summary: 'Delete user with safe relation cascade (Requires ADMIN role)' })
+  @ApiOperation({
+    summary: 'Delete user with safe relation cascade (Requires ADMIN role)',
+  })
   @ApiParam({ name: 'id', description: 'User ID' })
   @ApiResponse({ status: 200, description: 'User deleted successfully.' })
-  @ApiConflictResponse({ description: 'Cannot delete the last active administrator.' })
+  @ApiConflictResponse({
+    description: 'Cannot delete the last active administrator.',
+  })
   async deleteUser(
     @Param('id') id: string,
     @CurrentUser('id') currentAdminId: string,
@@ -117,8 +127,13 @@ export class AdminController {
 
   @Get('subscriptions')
   @HttpCode(HttpStatus.OK)
-  @ApiOperation({ summary: 'Get paginated subscriptions with filters (Requires ADMIN role)' })
-  @ApiResponse({ status: 200, description: 'Subscriptions fetched successfully.' })
+  @ApiOperation({
+    summary: 'Get paginated subscriptions with filters (Requires ADMIN role)',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Subscriptions fetched successfully.',
+  })
   async getSubscriptions(@Query() query: AdminSubscriptionQueryDto) {
     const data = await this.adminService.getSubscriptions(query);
     return {
@@ -135,7 +150,10 @@ export class AdminController {
   @Get('providers')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Get all AI providers (Requires ADMIN role)' })
-  @ApiResponse({ status: 200, description: 'AI providers retrieved successfully.' })
+  @ApiResponse({
+    status: 200,
+    description: 'AI providers retrieved successfully.',
+  })
   async getAllProviders() {
     return this.adminService.getAllProviders();
   }
@@ -143,16 +161,24 @@ export class AdminController {
   @Post('providers')
   @HttpCode(HttpStatus.CREATED)
   @ApiOperation({ summary: 'Create new AI provider (Requires ADMIN role)' })
-  @ApiResponse({ status: 201, description: 'AI provider created successfully.' })
+  @ApiResponse({
+    status: 201,
+    description: 'AI provider created successfully.',
+  })
   async createProvider(@Body() dto: CreateAIProviderDto) {
     return this.adminService.createProvider(dto);
   }
 
   @Patch('providers/:id')
   @HttpCode(HttpStatus.OK)
-  @ApiOperation({ summary: 'Update AI provider configuration (Requires ADMIN role)' })
+  @ApiOperation({
+    summary: 'Update AI provider configuration (Requires ADMIN role)',
+  })
   @ApiParam({ name: 'id', description: 'Provider ID' })
-  @ApiResponse({ status: 200, description: 'AI provider updated successfully.' })
+  @ApiResponse({
+    status: 200,
+    description: 'AI provider updated successfully.',
+  })
   async updateProvider(
     @Param('id') id: string,
     @Body() dto: UpdateAIProviderDto,
@@ -164,8 +190,13 @@ export class AdminController {
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Delete AI provider (Requires ADMIN role)' })
   @ApiParam({ name: 'id', description: 'Provider ID' })
-  @ApiResponse({ status: 200, description: 'AI provider deleted successfully.' })
-  @ApiBadRequestResponse({ description: 'Cannot delete provider with existing chat or usage history.' })
+  @ApiResponse({
+    status: 200,
+    description: 'AI provider deleted successfully.',
+  })
+  @ApiBadRequestResponse({
+    description: 'Cannot delete provider with existing chat or usage history.',
+  })
   async deleteProvider(@Param('id') id: string) {
     return this.adminService.deleteProvider(id);
   }
@@ -176,8 +207,13 @@ export class AdminController {
 
   @Get('analytics/usage')
   @HttpCode(HttpStatus.OK)
-  @ApiOperation({ summary: 'Get aggregated API usage analytics (Requires ADMIN role)' })
-  @ApiResponse({ status: 200, description: 'Usage analytics fetched successfully.' })
+  @ApiOperation({
+    summary: 'Get aggregated API usage analytics (Requires ADMIN role)',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Usage analytics fetched successfully.',
+  })
   async getUsageAnalytics(@Query() query: AdminAnalyticsQueryDto) {
     const data = await this.adminService.getUsageAnalytics(query);
     return {
@@ -189,8 +225,13 @@ export class AdminController {
 
   @Get('logs')
   @HttpCode(HttpStatus.OK)
-  @ApiOperation({ summary: 'Get paginated system API usage audit logs (Requires ADMIN role)' })
-  @ApiResponse({ status: 200, description: 'System API usage logs fetched successfully.' })
+  @ApiOperation({
+    summary: 'Get paginated system API usage audit logs (Requires ADMIN role)',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'System API usage logs fetched successfully.',
+  })
   async getSystemUsageLogs(@Query() query: AdminLogQueryDto) {
     const data = await this.adminService.getSystemUsageLogs(query);
     return {
@@ -207,7 +248,10 @@ export class AdminController {
   @Get('health')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Get system health metrics (Requires ADMIN role)' })
-  @ApiResponse({ status: 200, description: 'System health fetched successfully.' })
+  @ApiResponse({
+    status: 200,
+    description: 'System health fetched successfully.',
+  })
   async getSystemHealth() {
     const data = await this.adminService.getSystemHealth();
     return {

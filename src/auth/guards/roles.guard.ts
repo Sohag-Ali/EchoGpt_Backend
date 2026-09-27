@@ -1,4 +1,9 @@
-import { CanActivate, ExecutionContext, ForbiddenException, Injectable } from '@nestjs/common';
+import {
+  CanActivate,
+  ExecutionContext,
+  ForbiddenException,
+  Injectable,
+} from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import { RoleType } from '@prisma/client';
 import { ROLES_KEY } from '../../common/decorators/roles.decorator';
@@ -18,10 +23,10 @@ export class RolesGuard implements CanActivate {
       return true;
     }
 
-    const requiredRoles = this.reflector.getAllAndOverride<RoleType[]>(ROLES_KEY, [
-      context.getHandler(),
-      context.getClass(),
-    ]);
+    const requiredRoles = this.reflector.getAllAndOverride<RoleType[]>(
+      ROLES_KEY,
+      [context.getHandler(), context.getClass()],
+    );
 
     if (!requiredRoles || requiredRoles.length === 0) {
       return true;
@@ -30,10 +35,13 @@ export class RolesGuard implements CanActivate {
     const { user } = context.switchToHttp().getRequest();
 
     if (!user || !user.role) {
-      throw new ForbiddenException('Access denied. User role metadata missing.');
+      throw new ForbiddenException(
+        'Access denied. User role metadata missing.',
+      );
     }
 
-    const userRoleName: RoleType = typeof user.role === 'string' ? user.role : user.role.name;
+    const userRoleName: RoleType =
+      typeof user.role === 'string' ? user.role : user.role.name;
 
     const hasRole = requiredRoles.includes(userRoleName);
 
