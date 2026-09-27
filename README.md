@@ -1,6 +1,6 @@
 <div align="center">
 
-# ⚡ EchoGPT Backend API
+# EchoGPT Backend API
 
 **Production-Grade RESTful API & Real-Time SSE Streaming Engine for EchoGPT**
 
@@ -14,7 +14,7 @@
 
 *An architectural implementation featuring multi-provider AI chat (OpenAI, Gemini, Anthropic), real-time Server-Sent Events (SSE) streaming, live web search with Redis caching, bKash tokenized payment integration, multi-file Prisma schema, and centralized API audit logging.*
 
-[Explore Swagger Docs](https://echogptbackend-production.up.railway.app/api/docs) • [View Postman Collection](EchoGpt.postman_collection.json) • [Report Issue](https://github.com/Sohag-Ali/EchoGpt_Backend/issues)
+[Explore Swagger Docs](https://echogptbackend-production.up.railway.app/api/docs) • [View Postman Documentation](https://documenter.getpostman.com/view/54817904/2sBYB4K6is) • [DrawSQL Database ERD](https://drawsql.app/teams/mdsohag-ali/diagrams/echogpt) • [Report Issue](https://github.com/Sohag-Ali/EchoGpt_Backend/issues)
 
 </div>
 
@@ -50,7 +50,7 @@
 ## 📌 Overview
 
 **EchoGPT Backend** is a backend system engineered with **NestJS**, **TypeScript**, **PostgreSQL (Prisma ORM)**, and **Redis**. It provides the core API endpoints required for conversational AI extensions, real-time response streaming, dynamic AI model switching, live web search query acceleration, and automated payment-to-subscription workflows.
-Link : https://echogptbackend-production.up.railway.app
+
 
 ### 🎯 Core Challenges Solved:
 1. **Multi-Vendor AI Provider Aggregation:** Abstracted AI model integrations (OpenAI `gpt-4o`, Google Gemini `gemini-3.8-flash`, Anthropic Claude) behind a unified factory layer to prevent provider lock-in.
@@ -301,6 +301,8 @@ Every API request executed by the AI Chat and Web Search engines records an audi
 
 ## 🗄️ Database Schema & Models
 
+🔗 **Interactive DrawSQL ERD Diagram:** [https://drawsql.app/teams/mdsohag-ali/diagrams/echogpt](https://drawsql.app/teams/mdsohag-ali/diagrams/echogpt)
+
 Organized multi-file Prisma schema architecture located in `prisma/`:
 
 ```text
@@ -451,10 +453,10 @@ Interactive Swagger API documentation is available at startup:
 
 ---
 
-## 📮 Postman Collection
+## 📮 Postman Collection & API Documentation
 
-A Postman collection is included in the project root:
-📁 [`EchoGpt.postman_collection.json`](file:///e:/Project/EchoGPT%20Backend/echogpt_backend/EchoGpt.postman_collection.json)
+* 🌐 **Published Postman Web Documentation:** [https://documenter.getpostman.com/view/54817904/2sBYB4K6is](https://documenter.getpostman.com/view/54817904/2sBYB4K6is)
+* 📁 **Local Postman Collection JSON:** [`EchoGpt.postman_collection.json`](EchoGpt.postman_collection.json)
 
 ### Collection Folders:
 * **Auth**: Registration, OTP Verification, Resend OTP, Login, Google Login, Refresh Token, Reset Password, Logout.
