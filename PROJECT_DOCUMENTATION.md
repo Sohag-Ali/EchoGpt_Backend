@@ -219,6 +219,12 @@ bKash Gateway Redirects to Backend Callback: GET /api/v1/payments/bkash/callback
    └─► 5. Redirect User to Frontend Success Page with Transaction Details.
 ```
 
+### 🧪 bKash Sandbox Test Credentials:
+Use the following test credentials on the bKash Sandbox checkout page:
+* **Wallet Number:** `01770618576`
+* **Verification Code (OTP):** `123456`
+* **bKash PIN:** `12121`
+
 ---
 
 ## 7. AI Chat Engine, Provider Factory & SSE Real-Time Streaming

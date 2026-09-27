@@ -223,6 +223,12 @@ User Request (Upgrade Plan)
 7. Automatically Upgrade User Subscription to PREMIUM
 ```
 
+### 🧪 bKash Sandbox Test Credentials:
+Use the following test credentials on the bKash Sandbox checkout page:
+* **Wallet Number:** `01770618576`
+* **Verification Code (OTP):** `123456`
+* **bKash PIN:** `12121`
+
 ---
 
 ## 🖼️ Profile & Image Upload Management
@@ -498,28 +504,14 @@ npm run test:cov
 <div align="center">
 
 ### **Sohag Ali**
-*Senior Software Engineer / Backend Specialist*
+*Aspiring Backend Developer*
 
-[![Portfolio](https://img.shields.io/badge/Portfolio-sohag--ali.vercel.app-000000?style=for-the-badge&logo=vercel&logoColor=white)](https://portfolio-sohag-ali.vercel.app/)
+[![Portfolio](https://img.shields.io/badge/Portfolio-sohag--ali.vercel.app-000000?style=for-the-badge&logo=vercel&logoColor=white)](https://sohagali.me)
 [![GitHub](https://img.shields.io/badge/GitHub-Sohag--Ali-181717?style=for-the-badge&logo=github&logoColor=white)](https://github.com/Sohag-Ali)
 [![LinkedIn](https://img.shields.io/badge/LinkedIn-Sohag--Ali-0A66C2?style=for-the-badge&logo=linkedin&logoColor=white)](https://www.linkedin.com/in/sohag-ali-bd)
 
 </div>
 
----
-
-## 📦 Assignment Deliverables
-
-- ✅ **Source Code:** Complete NestJS backend codebase (`src/`).
-- ✅ **Multi-File Database Schema:** Modular Prisma models (`prisma/models/`).
-- ✅ **Migration History:** Version-controlled migration history (`prisma/migrations/`).
-- ✅ **Database Seeder & Repair Script:** Automated seeding & data repair routine (`prisma/seed.ts`).
-- ✅ **OpenAPI Docs:** Interactive Swagger UI (`/api/docs`).
-- ✅ **Postman Collection:** Ready-to-import Postman collection (`EchoGpt.postman_collection.json`).
-- ✅ **Environment Variable Template:** Comprehensive blueprint (`.env.example`).
-- ✅ **Documentation:** Polished, recruiter-friendly technical guide (`README.md`).
-
----
 
 <div align="center">
 
