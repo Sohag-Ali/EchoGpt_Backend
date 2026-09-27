@@ -195,7 +195,14 @@ export class AuthService {
     currentPeriodEnd.setMonth(currentPeriodEnd.getMonth() + 1);
 
     try {
-      // 8. Create User and FREE Subscription in PostgreSQL (OTP verified!)
+      const fullName = pendingData.name ? pendingData.name.trim() : '';
+      const firstName = fullName ? fullName.split(' ')[0] : null;
+      const lastName =
+        fullName && fullName.split(' ').length > 1
+          ? fullName.split(' ').slice(1).join(' ')
+          : null;
+
+      // 8. Create User, UserProfile, and FREE Subscription in PostgreSQL (OTP verified!)
       const createdUser = await this.prisma.user.create({
         data: {
           email,
@@ -204,6 +211,12 @@ export class AuthService {
           isEmailVerified: true,
           isActive: true,
           roleId: defaultRole.id,
+          profile: {
+            create: {
+              firstName,
+              lastName,
+            },
+          },
           subscription: {
             create: {
               plan: SubscriptionPlan.FREE,
@@ -221,6 +234,13 @@ export class AuthService {
           name: true,
           isEmailVerified: true,
           isActive: true,
+          profile: {
+            select: {
+              id: true,
+              firstName: true,
+              lastName: true,
+            },
+          },
           subscription: {
             select: {
               id: true,
@@ -665,6 +685,27 @@ export class AuthService {
           'Your account has been deactivated. Please contact support.',
         );
       }
+      // Ensure existing user has a UserProfile
+      const existingProfile = await this.prisma.userProfile.findUnique({
+        where: { userId: user.id },
+      });
+      if (!existingProfile) {
+        const fullName = (user.name || name || email.split('@')[0]).trim();
+        const firstName = fullName ? fullName.split(' ')[0] : null;
+        const lastName =
+          fullName && fullName.split(' ').length > 1
+            ? fullName.split(' ').slice(1).join(' ')
+            : null;
+        await this.prisma.userProfile.create({
+          data: {
+            userId: user.id,
+            firstName,
+            lastName,
+            profileImage: user.avatarUrl || picture || null,
+            profileImageUrl: user.avatarUrl || picture || null,
+          },
+        });
+      }
       this.logger.log(
         `Google authentication reused existing user account: ${user.email} [${user.id}]`,
       );
@@ -688,16 +729,31 @@ export class AuthService {
       const currentPeriodEnd = new Date();
       currentPeriodEnd.setMonth(currentPeriodEnd.getMonth() + 1);
 
-      // 4. Create new User with FREE subscription in PostgreSQL
+      const fullName = (name || email.split('@')[0]).trim();
+      const firstName = fullName ? fullName.split(' ')[0] : null;
+      const lastName =
+        fullName && fullName.split(' ').length > 1
+          ? fullName.split(' ').slice(1).join(' ')
+          : null;
+
+      // 4. Create new User with UserProfile and FREE subscription in PostgreSQL
       user = await this.prisma.user.create({
         data: {
           email,
-          name: name || email.split('@')[0],
+          name: fullName,
           avatarUrl: picture || null,
           password: null,
           isEmailVerified: true,
           isActive: true,
           roleId: defaultRole.id,
+          profile: {
+            create: {
+              firstName,
+              lastName,
+              profileImage: picture || null,
+              profileImageUrl: picture || null,
+            },
+          },
           subscription: {
             create: {
               plan: SubscriptionPlan.FREE,
@@ -711,6 +767,7 @@ export class AuthService {
         },
         include: {
           role: true,
+          profile: true,
           subscription: true,
         },
       });

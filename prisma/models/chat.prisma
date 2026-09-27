@@ -1,0 +1,47 @@
+enum MessageRole {
+  SYSTEM
+  USER
+  ASSISTANT
+  TOOL
+}
+
+model Chat {
+  id           String      @id @default(uuid())
+  title        String      @default("New Chat")
+  userId       String      @map("user_id")
+  user         User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  providerId   String?     @map("provider_id")
+  provider     AIProvider? @relation(fields: [providerId], references: [id], onDelete: SetNull)
+  systemPrompt String?     @map("system_prompt")
+  isPinned     Boolean     @default(false) @map("is_pinned")
+  isArchived   Boolean     @default(false) @map("is_archived")
+  createdAt    DateTime    @default(now()) @map("created_at")
+  updatedAt    DateTime    @updatedAt @map("updated_at")
+
+  messages Message[]
+
+  @@index([userId])
+  @@index([providerId])
+  @@index([updatedAt])
+  @@map("chats")
+}
+
+model Message {
+  id               String      @id @default(uuid())
+  chatId           String      @map("chat_id")
+  chat             Chat        @relation(fields: [chatId], references: [id], onDelete: Cascade)
+  role             MessageRole
+  content          String      @db.Text
+  promptTokens     Int?        @map("prompt_tokens")
+  completionTokens Int?        @map("completion_tokens")
+  totalTokens      Int?        @map("total_tokens")
+  latencyMs        Int?        @map("latency_ms")
+  createdAt        DateTime    @default(now()) @map("created_at")
+  updatedAt        DateTime    @updatedAt @map("updated_at")
+
+  webSearches WebSearch[]
+
+  @@index([chatId])
+  @@index([createdAt])
+  @@map("messages")
+}

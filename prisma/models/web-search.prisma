@@ -1,0 +1,25 @@
+enum WebSearchStatus {
+  PENDING
+  COMPLETED
+  FAILED
+}
+
+model WebSearch {
+  id        String          @id @default(uuid())
+  userId    String          @map("user_id")
+  user      User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  messageId String?         @map("message_id")
+  message   Message?        @relation(fields: [messageId], references: [id], onDelete: SetNull)
+  query     String
+  results   Json?
+  status    WebSearchStatus @default(PENDING)
+  latencyMs Int?            @map("latency_ms")
+  createdAt DateTime        @default(now()) @map("created_at")
+  updatedAt DateTime        @updatedAt @map("updated_at")
+
+  @@index([userId])
+  @@index([userId, createdAt])
+  @@index([query])
+  @@index([messageId])
+  @@map("web_searches")
+}

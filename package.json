@@ -23,6 +23,7 @@
     "test:e2e": "vitest run --config ./vitest.config.e2e.ts"
   },
   "prisma": {
+    "schema": "prisma",
     "seed": "tsx prisma/seed.ts"
   },
   "dependencies": {

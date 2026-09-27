@@ -1,0 +1,18 @@
+enum RoleType {
+  USER
+  PREMIUM_USER
+  ADMIN
+  SUPPORT
+}
+
+model Role {
+  id          String   @id @default(uuid())
+  name        RoleType @unique @default(USER)
+  description String?
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  users User[]
+
+  @@map("roles")
+}

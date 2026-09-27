@@ -1,0 +1,35 @@
+enum PaymentProvider {
+  BKASH
+}
+
+enum PaymentStatus {
+  PENDING
+  COMPLETED
+  FAILED
+  CANCELLED
+  REFUNDED
+}
+
+model Payment {
+  id                String          @id @default(uuid())
+  userId            String          @map("user_id")
+  user              User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  subscriptionId    String?         @map("subscription_id")
+  subscription      Subscription?   @relation(fields: [subscriptionId], references: [id], onDelete: SetNull)
+  provider          PaymentProvider @default(BKASH)
+  amount            Float
+  currency          String          @default("BDT")
+  status            PaymentStatus   @default(PENDING)
+  transactionId     String?         @unique @map("transaction_id")
+  providerPaymentId String?         @map("provider_payment_id")
+  invoiceId         String?         @unique @map("invoice_id")
+  metadata          Json?
+  createdAt         DateTime        @default(now()) @map("created_at")
+  updatedAt         DateTime        @updatedAt @map("updated_at")
+
+  @@index([userId])
+  @@index([subscriptionId])
+  @@index([status])
+  @@index([transactionId])
+  @@map("payments")
+}

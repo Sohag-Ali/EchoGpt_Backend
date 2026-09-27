@@ -1,0 +1,27 @@
+enum ProviderType {
+  OPENAI
+  ANTHROPIC
+  GEMINI
+  CUSTOM
+}
+
+model AIProvider {
+  id              String       @id @default(uuid())
+  name            String
+  providerType    ProviderType @map("provider_type")
+  encryptedApiKey String?      @map("encrypted_api_key")
+  modelName       String?      @default("default") @map("model_name")
+  baseUrl         String?      @map("base_url")
+  isActive        Boolean      @default(true) @map("is_active")
+  isDefault       Boolean      @default(false) @map("is_default")
+  costPer1kInput  Float        @default(0.0) @map("cost_per_1k_input")
+  costPer1kOutput Float        @default(0.0) @map("cost_per_1k_output")
+  createdAt       DateTime     @default(now()) @map("created_at")
+  updatedAt       DateTime     @updatedAt @map("updated_at")
+
+  chats        Chat[]
+  apiUsageLogs ApiUsageLog[]
+
+  @@index([providerType])
+  @@map("ai_providers")
+}

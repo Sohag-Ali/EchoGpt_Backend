@@ -1,0 +1,54 @@
+model User {
+  id              String  @id @default(uuid())
+  email           String  @unique
+  password        String? // Nullable for OAuth/Google users
+  name            String?
+  avatarUrl       String? @map("avatar_url")
+  isEmailVerified Boolean @default(false) @map("is_email_verified")
+  isActive        Boolean @default(true) @map("is_active")
+
+  roleId String @map("role_id")
+  role   Role   @relation(fields: [roleId], references: [id])
+
+  profile                 UserProfile?
+  subscription            Subscription?
+  sessions                Session[]
+  chats                   Chat[]
+  webSearches             WebSearch[]
+  apiUsageLogs            ApiUsageLog[]
+  emailVerificationTokens EmailVerificationToken[]
+  passwordResetTokens     PasswordResetToken[]
+  payments                Payment[]
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@index([email])
+  @@index([roleId])
+  @@map("users")
+}
+
+model UserProfile {
+  id                   String    @id @default(uuid())
+  userId               String    @unique @map("user_id")
+  user                 User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  firstName            String?   @map("first_name")
+  lastName             String?   @map("last_name")
+  phone                String?
+  bio                  String?   @db.Text
+  profileImage         String?   @map("profile_image")
+  profileImageUrl      String?   @map("profile_image_url")
+  profileImagePublicId String?   @map("profile_image_public_id")
+  dateOfBirth          DateTime? @map("date_of_birth")
+  gender               String?
+  country              String?
+  city                 String?
+  address              String?
+  website              String?
+  github               String?
+  linkedin             String?
+  createdAt            DateTime  @default(now()) @map("created_at")
+  updatedAt            DateTime  @updatedAt @map("updated_at")
+
+  @@map("user_profiles")
+}
