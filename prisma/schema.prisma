@@ -129,8 +129,10 @@ model UserProfile {
   lastName     String?   @map("last_name")
   phone        String?
   bio          String?   @db.Text
-  profileImage String?   @map("profile_image")
-  dateOfBirth  DateTime? @map("date_of_birth")
+  profileImage         String?   @map("profile_image")
+  profileImageUrl      String?   @map("profile_image_url")
+  profileImagePublicId String?   @map("profile_image_public_id")
+  dateOfBirth          DateTime? @map("date_of_birth")
   gender       String?
   country      String?
   city         String?

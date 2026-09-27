@@ -1,4 +1,6 @@
+import 'multer';
 import {
+  BadRequestException,
   Body,
   Controller,
   Delete,
@@ -8,15 +10,22 @@ import {
   Param,
   Patch,
   Query,
+  UploadedFile,
+  UseInterceptors,
 } from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
 import {
   ApiBadRequestResponse,
   ApiBearerAuth,
+  ApiBody,
   ApiConflictResponse,
+  ApiConsumes,
   ApiForbiddenResponse,
+  ApiInternalServerErrorResponse,
   ApiNotFoundResponse,
   ApiOperation,
   ApiParam,
+  ApiPayloadTooLargeResponse,
   ApiQuery,
   ApiResponse,
   ApiTags,
@@ -96,22 +105,91 @@ export class UsersController {
 
   @Patch('me/profile')
   @HttpCode(HttpStatus.OK)
+  @UseInterceptors(FileInterceptor('profileImage'))
+  @ApiConsumes('multipart/form-data')
   @ApiBearerAuth('JWT-auth')
   @ApiOperation({
-    summary: 'Create or update own optional UserProfile details',
+    summary:
+      'Create or update own UserProfile details and optional Cloudinary profile image',
+  })
+  @ApiBody({
+    description:
+      'Profile information and optional profile image file (jpg, jpeg, png, webp, max 5MB)',
+    schema: {
+      type: 'object',
+      properties: {
+        firstName: { type: 'string', example: 'Sohag' },
+        lastName: { type: 'string', example: 'Ali' },
+        phone: { type: 'string', example: '+8801700000000' },
+        bio: {
+          type: 'string',
+          example: 'Backend software developer with NestJS & Prisma.',
+        },
+        dateOfBirth: { type: 'string', format: 'date', example: '1995-10-25' },
+        gender: { type: 'string', example: 'Male' },
+        country: { type: 'string', example: 'Bangladesh' },
+        city: { type: 'string', example: 'Dhaka' },
+        address: { type: 'string', example: 'Gulshan 2, Dhaka' },
+        website: { type: 'string', example: 'https://sohag.dev' },
+        github: { type: 'string', example: 'https://github.com/sohag' },
+        linkedin: { type: 'string', example: 'https://linkedin.com/in/sohag' },
+        profileImage: {
+          type: 'string',
+          format: 'binary',
+          description:
+            'Profile image file (JPG, JPEG, PNG, WEBP allowed, max size 5MB)',
+        },
+      },
+    },
   })
   @ApiResponse({
     status: 200,
     description: 'Profile updated successfully.',
   })
+  @ApiBadRequestResponse({
+    description: 'Validation failed or unsupported image file format.',
+  })
   @ApiUnauthorizedResponse({
     description: 'Unauthorized access.',
+  })
+  @ApiPayloadTooLargeResponse({
+    description: 'File size exceeds the 5MB maximum limit.',
+  })
+  @ApiInternalServerErrorResponse({
+    description: 'Cloudinary upload or server storage error.',
   })
   async updateMyProfile(
     @CurrentUser('id') userId: string,
     @Body() dto: UpdateProfileDto,
+    @UploadedFile() file?: Express.Multer.File,
   ) {
-    return this.usersService.updateMyProfile(userId, dto);
+    if (file) {
+      const allowedMimeTypes = [
+        'image/jpeg',
+        'image/jpg',
+        'image/png',
+        'image/webp',
+      ];
+      const allowedExtensions = /\.(jpg|jpeg|png|webp)$/i;
+
+      if (
+        !allowedMimeTypes.includes(file.mimetype) &&
+        !file.originalname.match(allowedExtensions)
+      ) {
+        throw new BadRequestException(
+          'Invalid file type. Only JPG, JPEG, PNG, and WEBP image files are allowed.',
+        );
+      }
+
+      const maxSize = 5 * 1024 * 1024; // 5MB limit
+      if (file.size > maxSize) {
+        throw new BadRequestException(
+          'File size exceeds the 5MB maximum limit.',
+        );
+      }
+    }
+
+    return this.usersService.updateMyProfile(userId, dto, file);
   }
 
   @Patch('me/password')

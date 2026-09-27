@@ -71,4 +71,9 @@ export const envValidationSchema = Joi.object({
 
   // Google OAuth Configuration
   GOOGLE_CLIENT_ID: Joi.string().allow('').optional(),
+
+  // Cloudinary Image Storage Credentials
+  CLOUDINARY_CLOUD_NAME: Joi.string().allow('').optional(),
+  CLOUDINARY_API_KEY: Joi.string().allow('').optional(),
+  CLOUDINARY_API_SECRET: Joi.string().allow('').optional(),
 });

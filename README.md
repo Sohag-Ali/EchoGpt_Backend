@@ -113,6 +113,33 @@ Nest is an MIT-licensed open source project. It can grow thanks to the sponsors 
 - Website - [https://nestjs.com](https://nestjs.com/)
 - Twitter - [@nestframework](https://twitter.com/nestframework)
 
+## Cloudinary Profile Image Upload Setup
+
+EchoGPT Backend supports secure profile image uploads to Cloudinary.
+
+### Required Environment Variables
+Add the following credentials to your `.env` file:
+
+```env
+CLOUDINARY_CLOUD_NAME=your_cloudinary_cloud_name
+CLOUDINARY_API_KEY=your_cloudinary_api_key
+CLOUDINARY_API_SECRET=your_cloudinary_api_secret
+```
+
+### Profile Image Upload Endpoint
+- **Endpoint**: `PATCH /api/v1/users/me/profile`
+- **Content-Type**: `multipart/form-data`
+- **Authentication**: Bearer Token / HttpOnly Cookie (`accessToken`)
+- **Form Fields**:
+  - `profileImage` (Binary file)
+  - `firstName`, `lastName`, `phone`, `bio`, `dateOfBirth`, `gender`, `country`, `city`, `address`, `website`, `github`, `linkedin`
+
+### Image Upload Specifications
+- **Supported Image Formats**: `JPG`, `JPEG`, `PNG`, `WEBP`
+- **Maximum File Size**: `5MB`
+- **Storage Location**: `echogpt/profile-images/{userId}`
+
 ## License
 
 Nest is [MIT licensed](https://github.com/nestjs/nest/blob/master/LICENSE).
+

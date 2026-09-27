@@ -23,6 +23,7 @@ import { LoggingInterceptor } from './common/interceptors/logging.interceptor';
 import { AppController } from './app.controller';
 
 import { UsageLogsModule } from './usage-logs/usage-logs.module';
+import { CloudinaryModule } from './cloudinary/cloudinary.module';
 
 @Module({
   imports: [
@@ -43,6 +44,7 @@ import { UsageLogsModule } from './usage-logs/usage-logs.module';
     PrismaModule,
     RedisModule,
     MailModule,
+    CloudinaryModule,
     UsageLogsModule,
     AuthModule,
     UsersModule,

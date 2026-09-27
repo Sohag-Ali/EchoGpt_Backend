@@ -45,10 +45,10 @@ export class UpdateProfileDto {
 
   @ApiPropertyOptional({
     example: 'https://example.com/images/avatar.jpg',
-    description: 'Profile image URL',
+    description: 'Profile image URL or file upload',
   })
   @IsOptional()
-  @IsUrl({}, { message: 'profileImage must be a valid URL' })
+  @IsString({ message: 'profileImage must be a string' })
   profileImage?: string;
 
   @ApiPropertyOptional({

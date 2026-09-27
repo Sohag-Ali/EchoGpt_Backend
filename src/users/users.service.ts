@@ -1,3 +1,4 @@
+import 'multer';
 import {
   BadRequestException,
   ConflictException,
@@ -10,6 +11,7 @@ import { ConfigService } from '@nestjs/config';
 import { RoleType } from '@prisma/client';
 import * as bcrypt from 'bcrypt';
 import { PrismaService } from '../prisma/prisma.service';
+import { CloudinaryService } from '../cloudinary/cloudinary.service';
 import { UpdateProfileDto } from './dto/update-profile.dto';
 import { ChangePasswordDto } from './dto/change-password.dto';
 import { DeactivateAccountDto } from './dto/deactivate-account.dto';
@@ -23,6 +25,7 @@ export class UsersService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly configService: ConfigService,
+    private readonly cloudinaryService: CloudinaryService,
   ) {}
 
   /**
@@ -111,11 +114,14 @@ export class UsersService {
         profile: {
           select: {
             id: true,
+            userId: true,
             firstName: true,
             lastName: true,
             phone: true,
             bio: true,
             profileImage: true,
+            profileImageUrl: true,
+            profileImagePublicId: true,
             dateOfBirth: true,
             gender: true,
             country: true,
@@ -156,18 +162,40 @@ export class UsersService {
   }
 
   /**
-   * 3. PATCH /users/me/profile - Create or Update UserProfile (upsert)
+   * 3. PATCH /users/me/profile - Create or Update UserProfile with optional Cloudinary profile image
    */
-  async updateMyProfile(userId: string, dto: UpdateProfileDto) {
+  async updateMyProfile(
+    userId: string,
+    dto: UpdateProfileDto,
+    file?: Express.Multer.File,
+  ) {
     const user = await this.prisma.user.findUnique({
       where: { id: userId },
+      include: { profile: true },
     });
 
     if (!user) {
       throw new NotFoundException('User account not found.');
     }
 
-    // Extract profile fields from DTO
+    const existingProfile = user.profile;
+    const oldPublicId = existingProfile?.profileImagePublicId;
+
+    let newImageUrl: string | undefined = undefined;
+    let newPublicId: string | undefined = undefined;
+
+    // 1. Upload new profile image to Cloudinary if file is provided
+    if (file) {
+      const folderPath = `echogpt/profile-images/${userId}`;
+      const uploadResult = await this.cloudinaryService.uploadImage(
+        file,
+        folderPath,
+      );
+      newImageUrl = uploadResult.secure_url;
+      newPublicId = uploadResult.public_id;
+    }
+
+    // 2. Extract profile fields from DTO
     const {
       firstName,
       lastName,
@@ -184,13 +212,11 @@ export class UsersService {
       linkedin,
     } = dto;
 
-    // Construct update object with only defined fields (preserving existing data)
     const profileFields: any = {};
     if (firstName !== undefined) profileFields.firstName = firstName;
     if (lastName !== undefined) profileFields.lastName = lastName;
     if (phone !== undefined) profileFields.phone = phone;
     if (bio !== undefined) profileFields.bio = bio;
-    if (profileImage !== undefined) profileFields.profileImage = profileImage;
     if (dateOfBirth !== undefined)
       profileFields.dateOfBirth = dateOfBirth ? new Date(dateOfBirth) : null;
     if (gender !== undefined) profileFields.gender = gender;
@@ -201,7 +227,17 @@ export class UsersService {
     if (github !== undefined) profileFields.github = github;
     if (linkedin !== undefined) profileFields.linkedin = linkedin;
 
-    // Upsert UserProfile record for this user
+    // Apply profile image URL and public ID
+    if (newImageUrl) {
+      profileFields.profileImageUrl = newImageUrl;
+      profileFields.profileImage = newImageUrl;
+      profileFields.profileImagePublicId = newPublicId;
+    } else if (profileImage !== undefined) {
+      profileFields.profileImageUrl = profileImage;
+      profileFields.profileImage = profileImage;
+    }
+
+    // 3. Upsert UserProfile record for this user
     await this.prisma.userProfile.upsert({
       where: { userId },
       create: {
@@ -210,6 +246,19 @@ export class UsersService {
       },
       update: profileFields,
     });
+
+    // 4. Sync avatarUrl in User model if image URL changed
+    if (profileFields.profileImageUrl) {
+      await this.prisma.user.update({
+        where: { id: userId },
+        data: { avatarUrl: profileFields.profileImageUrl },
+      });
+    }
+
+    // 5. Delete old Cloudinary image after new upload & database update succeed
+    if (newPublicId && oldPublicId && oldPublicId !== newPublicId) {
+      await this.cloudinaryService.deleteImage(oldPublicId);
+    }
 
     this.logger.log(`User [${userId}] updated profile data.`);
 
