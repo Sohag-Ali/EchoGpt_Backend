@@ -25,7 +25,7 @@ export class PaymentsService {
     private readonly prisma: PrismaService,
     private readonly configService: ConfigService,
     private readonly bkashService: BkashService,
-  ) {}
+  ) { }
 
   /**
    * Helper to resolve and normalize the bKash callback URL.
@@ -35,7 +35,7 @@ export class PaymentsService {
     let rawUrl = this.configService
       .get<string>(
         'bkash.callbackUrl',
-        'http://localhost:5000/api/v1/payments/bkash/callback',
+        'https://echogptbackend-production.up.railway.app/api/v1/payments/bkash/callback',
       )
       .trim();
 

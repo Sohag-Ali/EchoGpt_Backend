@@ -9,12 +9,12 @@
 [![PostgreSQL](https://img.shields.io/badge/PostgreSQL-Neon_DB-4169E1?style=for-the-badge&logo=postgresql&logoColor=white)](https://www.postgresql.org/)
 [![Prisma](https://img.shields.io/badge/Prisma_ORM-v6.19-2D3748?style=for-the-badge&logo=prisma&logoColor=white)](https://www.prisma.io/)
 [![Redis](https://img.shields.io/badge/Redis-ioredis-DC382D?style=for-the-badge&logo=redis&logoColor=white)](https://redis.io/)
-[![Swagger](https://img.shields.io/badge/OpenAPI-Swagger_UI-85EA2D?style=for-the-badge&logo=swagger&logoColor=black)](http://localhost:5000/api/docs)
+[![Swagger](https://img.shields.io/badge/OpenAPI-Swagger_UI-85EA2D?style=for-the-badge&logo=swagger&logoColor=black)](https://echogptbackend-production.up.railway.app/api/docs)
 [![Vitest](https://img.shields.io/badge/Vitest-Unit_%26_E2E-6E9F18?style=for-the-badge&logo=vitest&logoColor=white)](https://vitest.dev/)
 
 *An architectural implementation featuring multi-provider AI chat (OpenAI, Gemini, Anthropic), real-time Server-Sent Events (SSE) streaming, live web search with Redis caching, bKash tokenized payment integration, multi-file Prisma schema, and centralized API audit logging.*
 
-[Explore Swagger Docs](http://localhost:5000/api/docs) • [View Postman Collection](EchoGpt.postman_collection.json) • [Report Issue](https://github.com/Sohag-Ali/EchoGpt_Backend/issues)
+[Explore Swagger Docs](https://echogptbackend-production.up.railway.app/api/docs) • [View Postman Collection](EchoGpt.postman_collection.json) • [Report Issue](https://github.com/Sohag-Ali/EchoGpt_Backend/issues)
 
 </div>
 
@@ -50,6 +50,7 @@
 ## 📌 Overview
 
 **EchoGPT Backend** is a backend system engineered with **NestJS**, **TypeScript**, **PostgreSQL (Prisma ORM)**, and **Redis**. It provides the core API endpoints required for conversational AI extensions, real-time response streaming, dynamic AI model switching, live web search query acceleration, and automated payment-to-subscription workflows.
+Link : https://echogptbackend-production.up.railway.app
 
 ### 🎯 Core Challenges Solved:
 1. **Multi-Vendor AI Provider Aggregation:** Abstracted AI model integrations (OpenAI `gpt-4o`, Google Gemini `gemini-3.8-flash`, Anthropic Claude) behind a unified factory layer to prevent provider lock-in.
@@ -405,7 +406,7 @@ npm run start:dev
 npm run build
 npm run start:prod
 ```
-The API server will listen at `http://localhost:5000/api/v1`.
+The API server will listen at `https://echogptbackend-production.up.railway.app/api/v1`.
 
 ---
 
@@ -439,8 +440,8 @@ The API server will listen at `http://localhost:5000/api/v1`.
 
 Interactive Swagger API documentation is available at startup:
 
-* **Swagger UI URL:** [`http://localhost:5000/api/docs`](http://localhost:5000/api/docs)
-* **OpenAPI JSON Spec:** [`http://localhost:5000/api/docs-json`](http://localhost:5000/api/docs-json)
+* **Swagger UI URL:** [`https://echogptbackend-production.up.railway.app/api/docs`](https://echogptbackend-production.up.railway.app/api/docs)
+* **OpenAPI JSON Spec:** [`https://echogptbackend-production.up.railway.app/api/docs-json`](https://echogptbackend-production.up.railway.app/api/docs-json)
 
 ### Authenticating in Swagger UI:
 1. Execute `POST /api/v1/auth/login` or `POST /api/v1/auth/google`.

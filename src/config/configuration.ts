@@ -47,7 +47,7 @@ export default () => ({
     appSecret: process.env.BKASH_APP_SECRET || '',
     callbackUrl:
       process.env.BKASH_CALLBACK_URL ||
-      'http://localhost:5000/api/v1/payments/bkash/callback',
+      'https://echogptbackend-production.up.railway.app/api/v1/payments/bkash/callback',
     premiumPrice: parseFloat(process.env.BKASH_PREMIUM_PRICE || '500'),
   },
   google: {

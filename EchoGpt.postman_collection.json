@@ -778,7 +778,7 @@
             "method": "GET",
             "header": [],
             "url": {
-              "raw": "http://localhost:5000/api/v1/providers/e04e2064-e4c2-4280-a480-36fe7db24d71/health",
+              "raw": "https://echogptbackend-production.up.railway.app/api/v1/providers/e04e2064-e4c2-4280-a480-36fe7db24d71/health",
               "protocol": "http",
               "host": [
                 "localhost"
@@ -801,7 +801,7 @@
             "method": "DELETE",
             "header": [],
             "url": {
-              "raw": "http://localhost:5000/api/v1/providers/<PROVIDER_ID>",
+              "raw": "https://echogptbackend-production.up.railway.app/api/v1/providers/<PROVIDER_ID>",
               "protocol": "http",
               "host": [
                 "localhost"
@@ -1098,7 +1098,7 @@
             "method": "DELETE",
             "header": [],
             "url": {
-              "raw": "http://localhost:5000/api/v1/admin/users/29c1d618-3764-4832-b2e2-67d851ca6e4d",
+              "raw": "https://echogptbackend-production.up.railway.app/api/v1/admin/users/29c1d618-3764-4832-b2e2-67d851ca6e4d",
               "protocol": "http",
               "host": [
                 "localhost"
