@@ -21,12 +21,16 @@ export default () => ({
     user: process.env.REDIS_USER || 'default',
     password: process.env.REDIS_PASSWORD || undefined,
   },
-  smtp: {
-    host: process.env.SMTP_HOST || 'smtp.gmail.com',
-    port: parseInt(process.env.SMTP_PORT || '587', 10),
-    user: process.env.SMTP_USER || '',
-    password: process.env.SMTP_PASSWORD || '',
-    sender: process.env.EMAIL_SENDER || '',
+  // Legacy SMTP configuration (commented out for potential rollback)
+  // smtp: {
+  //   host: process.env.SMTP_HOST || 'smtp.gmail.com',
+  //   port: parseInt(process.env.SMTP_PORT || '587', 10),
+  //   user: process.env.SMTP_USER || '',
+  //   password: process.env.SMTP_PASSWORD || '',
+  //   sender: process.env.EMAIL_SENDER || '',
+  // },
+  resend: {
+    apiKey: process.env.RESEND_API_KEY || '',
   },
   ai: {
     openaiApiKey: process.env.OPENAI_API_KEY || '',

@@ -1,19 +1,37 @@
 import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import * as nodemailer from 'nodemailer';
+import { Resend } from 'resend';
 import { EmailTemplateService } from './template.service';
 
 @Injectable()
 export class MailService implements OnModuleInit {
   private readonly logger = new Logger(MailService.name);
-  private transporter: nodemailer.Transporter | null = null;
+  private resend: Resend | null = null;
+
+  /* Legacy Nodemailer Transporter (commented out for potential rollback)
+  private transporter: any | null = null;
+  */
 
   constructor(
     private readonly configService: ConfigService,
     private readonly templateService: EmailTemplateService,
-  ) {}
+  ) { }
 
   onModuleInit() {
+    const apiKey =
+      this.configService.get<string>('resend.apiKey') ||
+      process.env.RESEND_API_KEY;
+
+    if (apiKey) {
+      this.resend = new Resend(apiKey);
+      this.logger.log('Resend Email Client initialized successfully');
+    } else {
+      this.logger.warn(
+        'RESEND_API_KEY credentials not configured. Email messages will be logged to console in dev mode.',
+      );
+    }
+
+    /* Legacy Nodemailer Transporter Setup (commented out for potential rollback)
     const smtpHost = this.configService.get<string>(
       'smtp.host',
       'smtp.gmail.com',
@@ -40,17 +58,13 @@ export class MailService implements OnModuleInit {
         'SMTP credentials not configured. Email messages will be logged to console in dev mode.',
       );
     }
+    */
   }
 
   /**
    * Send Registration 6-Digit OTP code.
    */
   async sendRegistrationOtpEmail(toEmail: string, otp: string, name: string) {
-    const sender = this.configService.get<string>(
-      'smtp.sender',
-      'noreply@echogpt.io',
-    );
-
     const htmlContent = this.templateService.renderTemplate(
       'registration-otp',
       {
@@ -64,7 +78,6 @@ export class MailService implements OnModuleInit {
       toEmail,
       'Your EchoGPT Account Registration Verification OTP',
       htmlContent,
-      sender,
     );
   }
 
@@ -81,10 +94,6 @@ export class MailService implements OnModuleInit {
       'http://localhost:3000',
     );
     const verificationUrl = `${frontendUrl}/verify-email?token=${verificationToken}`;
-    const sender = this.configService.get<string>(
-      'smtp.sender',
-      'noreply@echogpt.io',
-    );
 
     const htmlContent = this.templateService.renderTemplate(
       'verification-email',
@@ -99,7 +108,6 @@ export class MailService implements OnModuleInit {
       toEmail,
       'Verify your EchoGPT account',
       htmlContent,
-      sender,
     );
   }
 
@@ -107,11 +115,6 @@ export class MailService implements OnModuleInit {
    * Send Password Reset 6-Digit OTP code.
    */
   async sendPasswordResetEmail(toEmail: string, otp: string, name: string) {
-    const sender = this.configService.get<string>(
-      'smtp.sender',
-      'noreply@echogpt.io',
-    );
-
     const htmlContent = this.templateService.renderTemplate('forgot-password', {
       name,
       otp,
@@ -122,7 +125,6 @@ export class MailService implements OnModuleInit {
       toEmail,
       'Your EchoGPT Password Reset Verification Code',
       htmlContent,
-      sender,
     );
   }
 
@@ -130,11 +132,6 @@ export class MailService implements OnModuleInit {
    * Send Password Reset Success notification.
    */
   async sendPasswordResetSuccessEmail(toEmail: string, name: string) {
-    const sender = this.configService.get<string>(
-      'smtp.sender',
-      'noreply@echogpt.io',
-    );
-
     const htmlContent = this.templateService.renderTemplate(
       'password-reset-success',
       {
@@ -146,7 +143,6 @@ export class MailService implements OnModuleInit {
       toEmail,
       'EchoGPT Password Reset Successful',
       htmlContent,
-      sender,
     );
   }
 
@@ -154,11 +150,6 @@ export class MailService implements OnModuleInit {
    * Send Welcome Email to verified user.
    */
   async sendWelcomeEmail(toEmail: string, name: string) {
-    const sender = this.configService.get<string>(
-      'smtp.sender',
-      'noreply@echogpt.io',
-    );
-
     const htmlContent = this.templateService.renderTemplate('welcome-email', {
       name,
     });
@@ -167,33 +158,44 @@ export class MailService implements OnModuleInit {
       toEmail,
       'Welcome to EchoGPT!',
       htmlContent,
-      sender,
     );
   }
 
   /**
-   * Internal helper to dispatch email via SMTP transporter or log to dev console.
+   * Internal helper to dispatch email via Resend API or log to dev console.
    */
   private async dispatchEmail(
     to: string,
     subject: string,
     html: string,
-    sender: string,
   ) {
-    if (this.transporter) {
+    if (this.resend) {
       try {
-        await this.transporter.sendMail({
-          from: `"EchoGPT" <${sender}>`,
+        // TODO: Change 'EchoGPT <noreply@mail.sohagali.me>' to a verified custom domain sender (e.g. 'EchoGPT <noreply@yourdomain.com>') before going fully live.
+        // onboarding@resend.dev only allows sending to the Resend account owner's email during testing.
+        const { data, error } = await this.resend.emails.send({
+          from: 'EchoGPT <noreply@mail.sohagali.me>',
           to,
           subject,
           html,
         });
-        this.logger.log(`Dispatched email [${subject}] to: ${to}`);
+
+        if (error) {
+          this.logger.error(
+            `Failed to send email [${subject}] to ${to} via Resend API: ${error.name} - ${error.message}`,
+          );
+          throw new Error(`Resend API error: ${error.message}`);
+        }
+
+        this.logger.log(
+          `Dispatched email [${subject}] to: ${to} (Resend ID: ${data?.id})`,
+        );
       } catch (err) {
         const error = err as Error;
         this.logger.error(
           `Failed to send email [${subject}] to ${to}: ${error.message}`,
         );
+        throw error;
       }
     } else {
       this.logger.log(`[DEV MODE EMAIL] Subject: "${subject}" | To: ${to}`);
