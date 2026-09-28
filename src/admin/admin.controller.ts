@@ -43,9 +43,9 @@ import { UpdateAIProviderDto } from '../providers/dto/update-ai-provider.dto';
 export class AdminController {
   constructor(private readonly adminService: AdminService) {}
 
-  // =========================================================================
+
   // 1. DASHBOARD
-  // =========================================================================
+  
 
   @Get('dashboard')
   @HttpCode(HttpStatus.OK)
@@ -63,9 +63,9 @@ export class AdminController {
     };
   }
 
-  // =========================================================================
+
   // 2. USER MANAGEMENT
-  // =========================================================================
+  
 
   @Get('users')
   @HttpCode(HttpStatus.OK)
@@ -121,9 +121,9 @@ export class AdminController {
     return this.adminService.deleteUser(id, currentAdminId);
   }
 
-  // =========================================================================
+  
   // 3. SUBSCRIPTION MANAGEMENT
-  // =========================================================================
+
 
   @Get('subscriptions')
   @HttpCode(HttpStatus.OK)
@@ -143,9 +143,9 @@ export class AdminController {
     };
   }
 
-  // =========================================================================
+ 
   // 4. AI PROVIDER MANAGEMENT
-  // =========================================================================
+
 
   @Get('providers')
   @HttpCode(HttpStatus.OK)
@@ -201,9 +201,9 @@ export class AdminController {
     return this.adminService.deleteProvider(id);
   }
 
-  // =========================================================================
+  
   // 5. ANALYTICS & LOGS
-  // =========================================================================
+
 
   @Get('analytics/usage')
   @HttpCode(HttpStatus.OK)
@@ -241,9 +241,9 @@ export class AdminController {
     };
   }
 
-  // =========================================================================
+
   // 6. HEALTH
-  // =========================================================================
+
 
   @Get('health')
   @HttpCode(HttpStatus.OK)
